@@ -1,5 +1,6 @@
 from PyQt5 import QtWidgets, QtGui, QtCore
 from PyQt5.QtWidgets import QApplication, QMainWindow
+from random import randint
 
 import sys
 
@@ -7,11 +8,11 @@ import sys
 class Cell(QtWidgets.QPushButton):
 
     def mousePressEvent(self, QMouseEvent):
-        if not self._opened:
+        if not self._opened and self.game.game:
             if QMouseEvent.button() == QtCore.Qt.LeftButton:
-                self._click('left')
+                self._click_left()
             elif QMouseEvent.button() == QtCore.Qt.RightButton:
-                self._click('right')
+                self._click_right()
 
     def __init__(self, window, game, pos_x, pos_y, size):
         super(Cell, self).__init__(window)
@@ -23,29 +24,35 @@ class Cell(QtWidgets.QPushButton):
         self._size = size
         self._opened = False
         self._marked = False
-        self._role = 'bomb'
+        self._role = 'empty'
 
         self.setGeometry(self._pos_x, self._pos_y, self._size, self._size)
         self.setCursor(QtCore.Qt.PointingHandCursor)
 
         self._set_image()
 
-    def _click(self, click):
-        if click == 'left':
-            self._opened = True
-            self.setCursor(QtCore.Qt.ArrowCursor)
-            self._change_image(0)
-            if (self._marked):
-                self.game.change_amound_marked(False)
-        elif click == 'right':
-            self._marked = not self._marked
-            if self._marked:
-                self.game.change_amound_marked(True)
-                self._change_image(10)
-            else:
-                self.game.change_amound_marked(False)
-                self._change_image(11)
+    def _click_left(self):
+        self._opened = True
+        self.setCursor(QtCore.Qt.ArrowCursor)
 
+        if self._role == 'empty':
+            self._change_image(0)
+        elif self._role == 'bomb':
+            self.game.defeat()
+        else:
+            print('error Cell:_click_left')
+
+        if (self._marked):
+            self.game.change_amound_marked(False)
+
+    def _click_right(self):
+        self._marked = not self._marked
+        if self._marked:
+            self.game.change_amound_marked(True)
+            self._change_image(10)
+        else:
+            self.game.change_amound_marked(False)
+            self._change_image(11)
 
     def _set_image(self):
         img = QtGui.QPixmap('image/cell/cell_11.bmp')
@@ -59,33 +66,56 @@ class Cell(QtWidgets.QPushButton):
         img = img.scaled(self._size, self._size)
         self.label.setPixmap(img)
 
+    def setRole(self, role):
+        self._role = role
+        # self._change_image(9)
+
+    def kill(self):
+        if (self._role == 'bomb'):
+            self._change_image(9)
+        else:
+            self.setCursor(QtCore.Qt.ArrowCursor)
+
 
 class Game:
     def __init__(self, window):
         self.window = window
 
-        self.level = [20, 12, 3]
+        self.game = True
+        self.level = [5, 5, 3]
         self._cellSize = 35
 
         self._cell_MaxX = self.window.getSize()[0] / self._cellSize
         self._cell_MaxY = self.window.getSize()[1] / self._cellSize
 
         self._cells = []
+        self._bombs = []
         self._amound_marked = 0
 
-        self._showCell()
+        self._createCell()
+        self._createBomb()
 
-    def _showCell(self):
+    def _createCell(self):
         if not self._check_level():
             return False
 
         for i in range(self.level[1]):
             for j in range(self.level[0]):
-                x = self.window.getPosZero()[0] + (self._cellSize * j)
-                y = self.window.getPosZero()[1] + (self._cellSize * i)
+                # x = self.window.getPosZero()[0] + (self._cellSize * j)
+                # y = self.window.getPosZero()[1] + (self._cellSize * i)
 
-                cell = Cell(self.window, self, x, y, self._cellSize)
+                x = self._cellSize * j
+                y = self._cellSize * i
+
+                cell = Cell(self.window.body, self, x, y, self._cellSize)
                 self._cells.append(cell)
+
+    def _createBomb(self):
+        for i in range(self.level[2]):
+            last = len(self._cells) - 1
+            index = randint(0, last)
+            self._cells[index].setRole('bomb')
+            self._bombs.append(index)
 
 
     def _check_level(self):
@@ -105,6 +135,15 @@ class Game:
             self._amound_marked -= 1
 
         print(self._amound_marked)
+
+    def defeat(self):
+        self.game = False
+        for cell in self._cells:
+            cell.kill()
+        label = QtWidgets.QLabel('Game Over', self.window.body)
+        label.setStyleSheet('color: red;font-size: 32px;background: none')
+        label.move(0, 0)
+        # label.show()
 
 
 class Window(QMainWindow):
