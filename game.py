@@ -1,7 +1,7 @@
 from PyQt5 import QtWidgets, QtGui, QtCore
 from PyQt5.QtWidgets import QApplication, QMainWindow
-from random import randint
 
+from random import randint
 import sys
 
 
@@ -70,6 +70,11 @@ class Cell(QtWidgets.QPushButton):
         self._role = role
         # self._change_image(9)
 
+    def change_size(self, size, posX, posY):
+        self.size = size
+        self.setFixedSize(self.size, self.size)
+        self.move(posX, posY)
+
     def kill(self):
         if (self._role == 'bomb'):
             self._change_image(9)
@@ -82,19 +87,25 @@ class Game:
         self.window = window
 
         self.game = True
+        self.field = 'obj'
         self.level = [5, 5, 3]
+        self._cellMinSize = 35
         self._cellSize = 35
 
-        self._cell_MaxX = self.window.getSize()[0] / self._cellSize
-        self._cell_MaxY = self.window.getSize()[1] / self._cellSize
+        self._cell_MaxX = 0
+        self._cell_MaxY = 0
 
         self._cells = []
         self._bombs = []
         self._amound_marked = 0
 
+        self._createField()
+        self._calcCellMax()
         self._createCell()
         self._createBomb()
 
+    def _createField(self):
+        self.field = QtWidgets.QWidget(self.window.body)
     def _createCell(self):
         if not self._check_level():
             return False
@@ -128,6 +139,57 @@ class Game:
         else:
             return True
 
+    def changeSizeWindow(self):
+        self._calcCellSize()
+        self._cell_change_size()
+        # self._calcCellMax()
+
+    def _cell_change_size(self):
+        countX = 0
+        countY = 0
+        for cell in self._cells:
+            posX = countX * self._cellSize
+            posY = countY * self._cellSize
+            cell.change_size(self._cellSize, posX, posY)
+            countX += 1
+
+            if (countX == self.level[0]):
+                countX = 0
+                countY += 1
+
+            # if (countY == self.level[1]):
+            #     countY = 0
+
+
+    def _calcCellSize(self):
+        cellWidth = self.window.body.size().width() / self.level[0]
+        cellHeight = self.window.body.size().height() / self.level[1]
+        cellFitsToBody_width = (self.level[0] * self._cellSize) <= (self.window.body.size().width() - 1)
+        cellFitsToBody_height = (self.level[1] * self._cellSize) <= (self.window.body.size().height() - 1)
+
+        print(cellFitsToBody_width, cellFitsToBody_height)
+        # print(self._cellSize, cellWidth)
+
+        # if (cellFitsToBody_width) or (not cellFitsToBody_height):
+            # self._cellSize = int(cellHeight)
+        if cellFitsToBody_width and cellFitsToBody_height:
+            if (cellWidth <= cellHeight):
+                self._cellSize = int(cellWidth)
+            else:
+                self._cellSize = int(cellHeight)
+        if not cellFitsToBody_width:
+            self._cellSize = int(cellWidth)
+        if not cellFitsToBody_height:
+            self._cellSize = int(cellHeight)
+
+
+
+        # if cellWidth >= cellHeight:
+
+    def _calcCellMax(self):
+        self._cell_MaxX = self.window.size().width() / self._cellSize
+        self._cell_MaxY = self.window.size().height() / self._cellSize
+
     def change_amound_marked(self, adding):
         if adding:
             self._amound_marked += 1
@@ -147,21 +209,35 @@ class Game:
 
 
 class Window(QMainWindow):
+    resized = QtCore.pyqtSignal()
+
+    def resizeEvent(self, event):
+        self.resized.emit()
+        return super(Window, self).resizeEvent(event)
+
     def __init__(self):
         super(Window, self).__init__()
-
-        self.title = 'Minesweeper';
 
         self._width = 700
         self._height = 450
         self._posXZero = 0
         self._posYZero = 30
+        self.game = 'obj'
+        self.body = 'Widget'
 
+        self.title = 'Minesweeper';
+        self.resized.connect(self._changeSize)
         self.setWindowTitle(self.title)
-        self.setGeometry(720, 400, self._width, self._height)
+        self.setGeometry(720, 150, self._width, self._height)
 
         self._createMenu()
         self._createBody()
+
+    def _changeSize(self):
+        self._width = self.size().width();
+        self._height = self.size().height();
+        self.body.setFixedSize(self._width, self._height - self._posYZero)
+        self.game.changeSizeWindow()
 
     def _createBody(self):
         self.body = QtWidgets.QWidget(self)
@@ -181,16 +257,11 @@ class Window(QMainWindow):
         game.addAction(QtWidgets.QAction('Заново', self))
         game.addAction(QtWidgets.QAction('Новый уровень', self))
 
+    def setGame(self, game):
+        self.game = game
 
-
-
-    def getSize(self):
-        w = self._width - self._posXZero
-        h = self._height - self._posYZero
-        return [w, h]
-
-    def getPosZero(self):
-        return [self._posXZero, self._posYZero]
+    # def getPosZero(self):
+    #     return [self._posXZero, self._posYZero]
 
 
 
@@ -200,6 +271,7 @@ def application():
     app = QApplication(sys.argv)
     window = Window()
     game = Game(window)
+    window.setGame(game)
 
     window.show()
     sys.exit(app.exec_())
