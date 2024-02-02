@@ -14,10 +14,10 @@ class Cell(QtWidgets.QPushButton):
             elif QMouseEvent.button() == QtCore.Qt.RightButton:
                 self._click_right()
 
-    def __init__(self, window, game, pos_x, pos_y, size):
-        super(Cell, self).__init__(window)
+    def __init__(self, field, game, pos_x, pos_y, size):
+        super(Cell, self).__init__(field)
 
-        self._window = window
+        self._field = field
         self.game = game
         self._pos_x = pos_x
         self._pos_y = pos_y
@@ -106,6 +106,7 @@ class Game:
 
     def _createField(self):
         self.field = QtWidgets.QWidget(self.window.body)
+
     def _createCell(self):
         if not self._check_level():
             return False
@@ -118,7 +119,7 @@ class Game:
                 x = self._cellSize * j
                 y = self._cellSize * i
 
-                cell = Cell(self.window.body, self, x, y, self._cellSize)
+                cell = Cell(self.field, self, x, y, self._cellSize)
                 self._cells.append(cell)
 
     def _createBomb(self):
@@ -144,6 +145,13 @@ class Game:
         self._cell_change_size()
         # self._calcCellMax()
 
+    def _fieldCalcSize(self):
+        fieldWidth = self._cellSize * self.level[0]
+        fieldHeight = self._cellSize * self.level[1]
+        alignHCenter = int((self.window.body.size().width() / 2) - (fieldWidth / 2))
+
+        self.field.setGeometry(alignHCenter, 0, fieldWidth, fieldHeight)
+
     def _cell_change_size(self):
         countX = 0
         countY = 0
@@ -157,38 +165,31 @@ class Game:
                 countX = 0
                 countY += 1
 
-            # if (countY == self.level[1]):
-            #     countY = 0
-
-
     def _calcCellSize(self):
         cellWidth = self.window.body.size().width() / self.level[0]
         cellHeight = self.window.body.size().height() / self.level[1]
         cellFitsToBody_width = (self.level[0] * self._cellSize) <= (self.window.body.size().width() - 1)
         cellFitsToBody_height = (self.level[1] * self._cellSize) <= (self.window.body.size().height() - 1)
 
-        print(cellFitsToBody_width, cellFitsToBody_height)
-        # print(self._cellSize, cellWidth)
-
         # if (cellFitsToBody_width) or (not cellFitsToBody_height):
             # self._cellSize = int(cellHeight)
         if cellFitsToBody_width and cellFitsToBody_height:
             if (cellWidth <= cellHeight):
                 self._cellSize = int(cellWidth)
+                self._fieldCalcSize()
             else:
                 self._cellSize = int(cellHeight)
+                self._fieldCalcSize()
         if not cellFitsToBody_width:
             self._cellSize = int(cellWidth)
+            self._fieldCalcSize()
         if not cellFitsToBody_height:
             self._cellSize = int(cellHeight)
-
-
-
-        # if cellWidth >= cellHeight:
+            self._fieldCalcSize()
 
     def _calcCellMax(self):
-        self._cell_MaxX = self.window.size().width() / self._cellSize
-        self._cell_MaxY = self.window.size().height() / self._cellSize
+        self._cell_MaxX = self.window.size().width() / self._cellMinSize
+        self._cell_MaxY = self.window.size().height() / self._cellMinSize
 
     def change_amound_marked(self, adding):
         if adding:
