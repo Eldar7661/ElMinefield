@@ -19,12 +19,16 @@ class Cell(QtWidgets.QPushButton):
 
         self._field = field
         self.game = game
+
         self._pos_x = pos_x
         self._pos_y = pos_y
         self._size = size
+
         self._opened = False
         self._marked = False
         self._role = 'empty'
+        self.img = 'image'
+        self.imgLabel = 'conteiner'
 
         self.setGeometry(self._pos_x, self._pos_y, self._size, self._size)
         self.setCursor(QtCore.Qt.PointingHandCursor)
@@ -54,26 +58,32 @@ class Cell(QtWidgets.QPushButton):
             self.game.change_amound_marked(False)
             self._change_image(11)
 
+    # def resizeEvent(self, event):
+    #     self.setIconSize(event.size())
+    #     super().resizeEvent(event)
+
     def _set_image(self):
-        img = QtGui.QPixmap('image/cell/cell_11.bmp')
-        img = img.scaled(self._size, self._size)
-        self.label = QtWidgets.QLabel(self)
-        self.label.resize(self._size, self._size)
-        self.label.setPixmap(img)
+        self.img = QtGui.QPixmap('image/cell/cell_11.bmp')
+        self.imgLabel = QtWidgets.QLabel(self)
+        self._adjustment_image()
 
     def _change_image(self, id):
-        img = QtGui.QPixmap(f'image/cell/cell_{id}.bmp')
-        img = img.scaled(self._size, self._size)
-        self.label.setPixmap(img)
+        self.img = QtGui.QPixmap(f'image/cell/cell_{id}.bmp')
+        self._adjustment_image()
+
+    def _adjustment_image(self):
+        self.imgLabel.resize(self._size, self._size)
+        self.imgLabel.setPixmap(self.img.scaled(self._size, self._size))
 
     def setRole(self, role):
         self._role = role
         # self._change_image(9)
 
     def change_size(self, size, posX, posY):
-        self.size = size
-        self.setFixedSize(self.size, self.size)
+        self._size = size
+        self.setFixedSize(self._size, self._size)
         self.move(posX, posY)
+        self._adjustment_image()
 
     def kill(self):
         if (self._role == 'bomb'):
@@ -88,7 +98,7 @@ class Game:
 
         self.game = True
         self.field = 'obj'
-        self.level = [5, 5, 3]
+        self.level = [14, 12, 3]
         self._cellMinSize = 35
         self._cellSize = 35
 
@@ -100,9 +110,12 @@ class Game:
         self._amound_marked = 0
 
         self._createField()
-        self._calcCellMax()
-        self._createCell()
-        self._createBomb()
+        self._calcCellAmountMax()
+        if self._createCell():
+            self._createBomb()
+        else:
+            print(f'Error: maximum amount cells\nx: {self._cell_MaxX}, y: {self._cell_MaxY}')
+        self.calcMinSizeWindow()
 
     def _createField(self):
         self.field = QtWidgets.QWidget(self.window.body)
@@ -121,6 +134,7 @@ class Game:
 
                 cell = Cell(self.field, self, x, y, self._cellSize)
                 self._cells.append(cell)
+        return True
 
     def _createBomb(self):
         for i in range(self.level[2]):
@@ -143,7 +157,7 @@ class Game:
     def changeSizeWindow(self):
         self._calcCellSize()
         self._cell_change_size()
-        # self._calcCellMax()
+        # self._calcCellAmountMax()
 
     def _fieldCalcSize(self):
         fieldWidth = self._cellSize * self.level[0]
@@ -187,9 +201,15 @@ class Game:
             self._cellSize = int(cellHeight)
             self._fieldCalcSize()
 
-    def _calcCellMax(self):
-        self._cell_MaxX = self.window.size().width() / self._cellMinSize
-        self._cell_MaxY = self.window.size().height() / self._cellMinSize
+    def _calcCellAmountMax(self):
+        self._cell_MaxX = int(self.window.size().width() / self._cellMinSize)
+        self._cell_MaxY = int(self.window.size().height() / self._cellMinSize)
+
+    def calcMinSizeWindow(self):
+        min_width = self._cellMinSize * self.level[0]
+        min_height = self._cellMinSize * self.level[1]
+        self.window.setMinSize(min_width, min_height)
+
 
     def change_amound_marked(self, adding):
         if adding:
@@ -206,7 +226,7 @@ class Game:
         label = QtWidgets.QLabel('Game Over', self.window.body)
         label.setStyleSheet('color: red;font-size: 32px;background: none')
         label.move(0, 0)
-        # label.show()
+        label.show()
 
 
 class Window(QMainWindow):
@@ -238,6 +258,7 @@ class Window(QMainWindow):
         self._width = self.size().width();
         self._height = self.size().height();
         self.body.setFixedSize(self._width, self._height - self._posYZero)
+        self.game.calcMinSizeWindow()
         self.game.changeSizeWindow()
 
     def _createBody(self):
@@ -257,6 +278,9 @@ class Window(QMainWindow):
         play = game.addAction(QtWidgets.QAction('Играть', self))
         game.addAction(QtWidgets.QAction('Заново', self))
         game.addAction(QtWidgets.QAction('Новый уровень', self))
+
+    def setMinSize(self, w, h):
+        self.setMinimumSize(w + self._posXZero, h + self._posYZero)
 
     def setGame(self, game):
         self.game = game
