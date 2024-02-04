@@ -24,6 +24,7 @@ class Cell(QtWidgets.QPushButton):
         self._pos_y = pos_y
         self._size = size
 
+        self._level = 0
         self._opened = False
         self._marked = False
         self._role = 'empty'
@@ -40,7 +41,7 @@ class Cell(QtWidgets.QPushButton):
         self.setCursor(QtCore.Qt.ArrowCursor)
 
         if self._role == 'empty':
-            self._change_image(0)
+            self._change_image(self._level)
         elif self._role == 'bomb':
             self.game.defeat()
         else:
@@ -76,8 +77,12 @@ class Cell(QtWidgets.QPushButton):
         self.imgLabel.setPixmap(self.img.scaled(self._size, self._size))
 
     def setRole(self, role):
-        self._role = role
-        # self._change_image(9)
+        self._change_image(9)
+        if self._role == 'bomb':
+            return False
+        else:
+            self._role = role
+            return True
 
     def change_size(self, size, posX, posY):
         self._size = size
@@ -91,6 +96,9 @@ class Cell(QtWidgets.QPushButton):
         else:
             self.setCursor(QtCore.Qt.ArrowCursor)
 
+    def addLevel(self):
+        self._level += 1
+
 
 class Game:
     def __init__(self, window):
@@ -98,7 +106,7 @@ class Game:
 
         self.game = True
         self.field = 'obj'
-        self.level = [14, 12, 3]
+        self.level = [26, 26, 600]
         self._cellMinSize = 35
         self._cellSize = 35
 
@@ -113,6 +121,7 @@ class Game:
         self._calcCellAmountMax()
         if self._createCell():
             self._createBomb()
+            self._calcPositionBomb()
         else:
             print(f'Error: maximum amount cells\nx: {self._cell_MaxX}, y: {self._cell_MaxY}')
         self.calcMinSizeWindow()
@@ -125,24 +134,117 @@ class Game:
             return False
 
         for i in range(self.level[1]):
+            self._cells.append([])
             for j in range(self.level[0]):
-                # x = self.window.getPosZero()[0] + (self._cellSize * j)
-                # y = self.window.getPosZero()[1] + (self._cellSize * i)
-
                 x = self._cellSize * j
                 y = self._cellSize * i
 
                 cell = Cell(self.field, self, x, y, self._cellSize)
-                self._cells.append(cell)
+                self._cells[i].append(cell)
+
         return True
 
     def _createBomb(self):
-        for i in range(self.level[2]):
-            last = len(self._cells) - 1
-            index = randint(0, last)
-            self._cells[index].setRole('bomb')
-            self._bombs.append(index)
+        countBomb = 0
+        maxIndexX = len(self._cells[0]) - 1
+        maxIndexY = len(self._cells) - 1
 
+        while True:
+            indexX = randint(0, maxIndexX)
+            indexY = randint(0, maxIndexY)
+            if self._cells[indexY][indexX].setRole('bomb'):
+                self._bombs.append([indexY, indexX])
+                countBomb += 1
+
+
+            if countBomb == self.level[2]:
+                break
+
+    def _calcPositionBomb(self):
+        maxIndexX = len(self._cells[0]) - 1
+        maxIndexY = len(self._cells) - 1
+
+        for bomb in self._bombs:
+                i = bomb[0]
+                j = bomb[1]
+                # Corner
+                if i == 0 and j == 0:
+                    self._addLevelCells('Corner_NW', i, j)
+                elif i == 0 and j == maxIndexX:
+                    self._addLevelCells('Corner_NE', i, j)
+                elif i == maxIndexY and j == 0:
+                    self._addLevelCells('Corner_SW', i, j)
+                elif i == maxIndexY and j == maxIndexX:
+                    self._addLevelCells('Corner_SE', i, j)
+
+                # Ribs
+                elif i == 0 and j > 0 and j < maxIndexX:
+                    self._addLevelCells('Ribs_N', i, j)
+                elif i > 0 and i < maxIndexY and j == maxIndexX:
+                    self._addLevelCells('Ribs_E', i, j)
+                elif i == maxIndexY and j > 0 and j < maxIndexX:
+                    self._addLevelCells('Ribs_S', i, j)
+                elif i > 0 and i < maxIndexY and j == 0:
+                    self._addLevelCells('Ribs_W', i, j)
+                else:
+                    self._addLevelCells('Center', i, j)
+
+    def _addLevelCells(self, pos, posY, posX):
+        if pos == 'Corner_NW':
+            self._cells[0][posX + 1].addLevel()
+            self._cells[posY + 1][0].addLevel()
+            self._cells[posY + 1][posX + 1].addLevel()
+        elif pos == 'Corner_NE':
+            self._cells[0][posX - 1].addLevel()
+            self._cells[posY + 1][posX - 1].addLevel()
+            self._cells[posY + 1][posX].addLevel()
+        elif pos == 'Corner_SW':
+            self._cells[posY - 1][posX].addLevel()
+            self._cells[posY][posX + 1].addLevel()
+            self._cells[posY - 1][posX + 1].addLevel()
+        elif pos == 'Corner_SE':
+            self._cells[posY - 1][posX].addLevel()
+            self._cells[posY][posX - 1].addLevel()
+            self._cells[posY - 1][posX - 1].addLevel()
+
+
+        elif pos == 'Ribs_N':
+            self._cells[posY][posX + 1].addLevel()
+            self._cells[posY][posX - 1].addLevel()
+            self._cells[posY + 1][posX].addLevel()
+            self._cells[posY + 1][posX + 1].addLevel()
+            self._cells[posY + 1][posX - 1].addLevel()
+        elif pos == 'Ribs_E':
+            self._cells[posY + 1][posX].addLevel()
+            self._cells[posY - 1][posX].addLevel()
+            self._cells[posY][posX - 1].addLevel()
+            self._cells[posY - 1][posX - 1].addLevel()
+            self._cells[posY + 1][posX - 1].addLevel()
+        elif pos == 'Ribs_S':
+            self._cells[posY][posX + 1].addLevel()
+            self._cells[posY][posX - 1].addLevel()
+            self._cells[posY - 1][posX].addLevel()
+            self._cells[posY - 1][posX + 1].addLevel()
+            self._cells[posY - 1][posX - 1].addLevel()
+        elif pos == 'Ribs_W':
+            self._cells[posY + 1][posX].addLevel()
+            self._cells[posY - 1][posX].addLevel()
+            self._cells[posY][posX + 1].addLevel()
+            self._cells[posY + 1][posX + 1].addLevel()
+            self._cells[posY - 1][posX + 1].addLevel()
+
+        elif pos == 'Center':
+            self._cells[posY - 1][posX - 1].addLevel()
+            self._cells[posY - 1][posX].addLevel()
+            self._cells[posY - 1][posX + 1].addLevel()
+            self._cells[posY][posX - 1].addLevel()
+            self._cells[posY][posX + 1].addLevel()
+            self._cells[posY + 1][posX - 1].addLevel()
+            self._cells[posY + 1][posX].addLevel()
+            self._cells[posY + 1][posX + 1].addLevel()
+
+        else:
+            print('Error _addLevelCells()')
 
     def _check_level(self):
         x = self.level[0] > self._cell_MaxX
@@ -169,15 +271,16 @@ class Game:
     def _cell_change_size(self):
         countX = 0
         countY = 0
-        for cell in self._cells:
-            posX = countX * self._cellSize
-            posY = countY * self._cellSize
-            cell.change_size(self._cellSize, posX, posY)
-            countX += 1
+        for row in self._cells:
+            for cell in row:
+                posX = countX * self._cellSize
+                posY = countY * self._cellSize
+                cell.change_size(self._cellSize, posX, posY)
+                countX += 1
 
-            if (countX == self.level[0]):
-                countX = 0
-                countY += 1
+                if (countX == self.level[0]):
+                    countX = 0
+                    countY += 1
 
     def _calcCellSize(self):
         cellWidth = self.window.body.size().width() / self.level[0]
@@ -221,8 +324,10 @@ class Game:
 
     def defeat(self):
         self.game = False
-        for cell in self._cells:
-            cell.kill()
+        for row in self._cells:
+            for cell in row:
+                cell.kill()
+
         label = QtWidgets.QLabel('Game Over', self.window.body)
         label.setStyleSheet('color: red;font-size: 32px;background: none')
         label.move(0, 0)
@@ -239,8 +344,8 @@ class Window(QMainWindow):
     def __init__(self):
         super(Window, self).__init__()
 
-        self._width = 700
-        self._height = 450
+        self._width = 935
+        self._height = 935
         self._posXZero = 0
         self._posYZero = 30
         self.game = 'obj'
