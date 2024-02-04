@@ -10,7 +10,7 @@ class Cell(QtWidgets.QPushButton):
     def mousePressEvent(self, QMouseEvent):
         if not self._opened and self.game.game:
             if QMouseEvent.button() == QtCore.Qt.LeftButton:
-                self._click_left()
+                self.open()
             elif QMouseEvent.button() == QtCore.Qt.RightButton:
                 self._click_right()
 
@@ -36,19 +36,24 @@ class Cell(QtWidgets.QPushButton):
 
         self._set_image()
 
-    def _click_left(self):
+    def open(self):
+        if self._opened:
+            return False
+
         self._opened = True
         self.setCursor(QtCore.Qt.ArrowCursor)
 
+        if (self._marked):
+            self.game.change_amound_marked(False)
+
         if self._role == 'empty':
             self._change_image(self._level)
+            if self._level == 0:
+                self.game.openEmptyCell(self)
         elif self._role == 'bomb':
             self.game.defeat()
         else:
-            print('error Cell:_click_left')
-
-        if (self._marked):
-            self.game.change_amound_marked(False)
+            print('error Cell:open')
 
     def _click_right(self):
         self._marked = not self._marked
@@ -91,10 +96,9 @@ class Cell(QtWidgets.QPushButton):
         self._adjustment_image()
 
     def kill(self):
+        self.setCursor(QtCore.Qt.ArrowCursor)
         if (self._role == 'bomb'):
             self._change_image(9)
-        else:
-            self.setCursor(QtCore.Qt.ArrowCursor)
 
     def addLevel(self):
         self._level += 1
@@ -106,7 +110,7 @@ class Game:
 
         self.game = True
         self.field = 'obj'
-        self.level = [26, 26, 600]
+        self.level = [26, 26, 100]
         self._cellMinSize = 35
         self._cellSize = 35
 
@@ -121,7 +125,6 @@ class Game:
         self._calcCellAmountMax()
         if self._createCell():
             self._createBomb()
-            self._calcPositionBomb()
         else:
             print(f'Error: maximum amount cells\nx: {self._cell_MaxX}, y: {self._cell_MaxY}')
         self.calcMinSizeWindow()
@@ -153,98 +156,112 @@ class Game:
             indexX = randint(0, maxIndexX)
             indexY = randint(0, maxIndexY)
             if self._cells[indexY][indexX].setRole('bomb'):
-                self._bombs.append([indexY, indexX])
+                self._bombs.append(self._cells[indexY][indexX])
                 countBomb += 1
 
 
             if countBomb == self.level[2]:
                 break
+        for bomb in self._bombs:
+            position = self._calcPositionCell(bomb);
+            aroundcell = self.calcAroundCell(position);
+            for cell in aroundcell:
+                cell.addLevel()
 
-    def _calcPositionBomb(self):
+    def _calcPositionCell(self, cell):
         maxIndexX = len(self._cells[0]) - 1
         maxIndexY = len(self._cells) - 1
 
-        for bomb in self._bombs:
-                i = bomb[0]
-                j = bomb[1]
-                # Corner
-                if i == 0 and j == 0:
-                    self._addLevelCells('Corner_NW', i, j)
-                elif i == 0 and j == maxIndexX:
-                    self._addLevelCells('Corner_NE', i, j)
-                elif i == maxIndexY and j == 0:
-                    self._addLevelCells('Corner_SW', i, j)
-                elif i == maxIndexY and j == maxIndexX:
-                    self._addLevelCells('Corner_SE', i, j)
+        for i in range(len(self._cells)):
+            for j in range(len(self._cells[0])):
+                if self._cells[i][j] == cell:
+                    pos_x = j
+                    pos_y = i
+        # Corner
+        if pos_y == 0 and pos_x == 0:
+            return ['Corner_NW', pos_y, pos_x]
+        elif pos_y == 0 and pos_x == maxIndexX:
+            return ['Corner_NE', pos_y, pos_x]
+        elif pos_y == maxIndexY and pos_x == 0:
+            return ['Corner_SW', pos_y, pos_x]
+        elif pos_y == maxIndexY and pos_x == maxIndexX:
+            return ['Corner_SE', pos_y, pos_x]
 
-                # Ribs
-                elif i == 0 and j > 0 and j < maxIndexX:
-                    self._addLevelCells('Ribs_N', i, j)
-                elif i > 0 and i < maxIndexY and j == maxIndexX:
-                    self._addLevelCells('Ribs_E', i, j)
-                elif i == maxIndexY and j > 0 and j < maxIndexX:
-                    self._addLevelCells('Ribs_S', i, j)
-                elif i > 0 and i < maxIndexY and j == 0:
-                    self._addLevelCells('Ribs_W', i, j)
-                else:
-                    self._addLevelCells('Center', i, j)
+        # Ribs
+        elif pos_y == 0 and pos_x > 0 and pos_x < maxIndexX:
+            return ['Ribs_N', pos_y, pos_x]
+        elif pos_y > 0 and pos_y < maxIndexY and pos_x == maxIndexX:
+            return ['Ribs_E', pos_y, pos_x]
+        elif pos_y == maxIndexY and pos_x > 0 and pos_x < maxIndexX:
+            return ['Ribs_S', pos_y, pos_x]
+        elif pos_y > 0 and pos_y < maxIndexY and pos_x == 0:
+            return ['Ribs_W', pos_y, pos_x]
+        else:
+            return ['Center', pos_y, pos_x]
 
-    def _addLevelCells(self, pos, posY, posX):
+    def calcAroundCell(self, position):
+        pos = position[0]
+        posY = position[1]
+        posX = position[2]
+        aroundCell = []
+
         if pos == 'Corner_NW':
-            self._cells[0][posX + 1].addLevel()
-            self._cells[posY + 1][0].addLevel()
-            self._cells[posY + 1][posX + 1].addLevel()
+            aroundCell.append(self._cells[0][posX + 1])
+            aroundCell.append(self._cells[posY + 1][0])
+            aroundCell.append(self._cells[posY + 1][posX + 1])
         elif pos == 'Corner_NE':
-            self._cells[0][posX - 1].addLevel()
-            self._cells[posY + 1][posX - 1].addLevel()
-            self._cells[posY + 1][posX].addLevel()
+            aroundCell.append(self._cells[0][posX - 1])
+            aroundCell.append(self._cells[posY + 1][posX - 1])
+            aroundCell.append(self._cells[posY + 1][posX])
         elif pos == 'Corner_SW':
-            self._cells[posY - 1][posX].addLevel()
-            self._cells[posY][posX + 1].addLevel()
-            self._cells[posY - 1][posX + 1].addLevel()
+            aroundCell.append(self._cells[posY - 1][posX])
+            aroundCell.append(self._cells[posY][posX + 1])
+            aroundCell.append(self._cells[posY - 1][posX + 1])
         elif pos == 'Corner_SE':
-            self._cells[posY - 1][posX].addLevel()
-            self._cells[posY][posX - 1].addLevel()
-            self._cells[posY - 1][posX - 1].addLevel()
+            aroundCell.append(self._cells[posY - 1][posX])
+            aroundCell.append(self._cells[posY][posX - 1])
+            aroundCell.append(self._cells[posY - 1][posX - 1])
 
 
         elif pos == 'Ribs_N':
-            self._cells[posY][posX + 1].addLevel()
-            self._cells[posY][posX - 1].addLevel()
-            self._cells[posY + 1][posX].addLevel()
-            self._cells[posY + 1][posX + 1].addLevel()
-            self._cells[posY + 1][posX - 1].addLevel()
+            aroundCell.append(self._cells[posY][posX + 1])
+            aroundCell.append(self._cells[posY][posX - 1])
+            aroundCell.append(self._cells[posY + 1][posX])
+            aroundCell.append(self._cells[posY + 1][posX + 1])
+            aroundCell.append(self._cells[posY + 1][posX - 1])
         elif pos == 'Ribs_E':
-            self._cells[posY + 1][posX].addLevel()
-            self._cells[posY - 1][posX].addLevel()
-            self._cells[posY][posX - 1].addLevel()
-            self._cells[posY - 1][posX - 1].addLevel()
-            self._cells[posY + 1][posX - 1].addLevel()
+            aroundCell.append(self._cells[posY + 1][posX])
+            aroundCell.append(self._cells[posY - 1][posX])
+            aroundCell.append(self._cells[posY][posX - 1])
+            aroundCell.append(self._cells[posY - 1][posX - 1])
+            aroundCell.append(self._cells[posY + 1][posX - 1])
         elif pos == 'Ribs_S':
-            self._cells[posY][posX + 1].addLevel()
-            self._cells[posY][posX - 1].addLevel()
-            self._cells[posY - 1][posX].addLevel()
-            self._cells[posY - 1][posX + 1].addLevel()
-            self._cells[posY - 1][posX - 1].addLevel()
+            aroundCell.append(self._cells[posY][posX + 1])
+            aroundCell.append(self._cells[posY][posX - 1])
+            aroundCell.append(self._cells[posY - 1][posX])
+            aroundCell.append(self._cells[posY - 1][posX + 1])
+            aroundCell.append(self._cells[posY - 1][posX - 1])
         elif pos == 'Ribs_W':
-            self._cells[posY + 1][posX].addLevel()
-            self._cells[posY - 1][posX].addLevel()
-            self._cells[posY][posX + 1].addLevel()
-            self._cells[posY + 1][posX + 1].addLevel()
-            self._cells[posY - 1][posX + 1].addLevel()
+            aroundCell.append(self._cells[posY + 1][posX])
+            aroundCell.append(self._cells[posY - 1][posX])
+            aroundCell.append(self._cells[posY][posX + 1])
+            aroundCell.append(self._cells[posY + 1][posX + 1])
+            aroundCell.append(self._cells[posY - 1][posX + 1])
 
         elif pos == 'Center':
-            self._cells[posY - 1][posX - 1].addLevel()
-            self._cells[posY - 1][posX].addLevel()
-            self._cells[posY - 1][posX + 1].addLevel()
-            self._cells[posY][posX - 1].addLevel()
-            self._cells[posY][posX + 1].addLevel()
-            self._cells[posY + 1][posX - 1].addLevel()
-            self._cells[posY + 1][posX].addLevel()
-            self._cells[posY + 1][posX + 1].addLevel()
+            aroundCell.append(self._cells[posY - 1][posX - 1])
+            aroundCell.append(self._cells[posY - 1][posX])
+            aroundCell.append(self._cells[posY - 1][posX + 1])
+            aroundCell.append(self._cells[posY][posX - 1])
+            aroundCell.append(self._cells[posY][posX + 1])
+            aroundCell.append(self._cells[posY + 1][posX - 1])
+            aroundCell.append(self._cells[posY + 1][posX])
+            aroundCell.append(self._cells[posY + 1][posX + 1])
 
         else:
             print('Error _addLevelCells()')
+
+        return aroundCell
 
     def _check_level(self):
         x = self.level[0] > self._cell_MaxX
@@ -321,6 +338,12 @@ class Game:
             self._amound_marked -= 1
 
         print(self._amound_marked)
+
+    def openEmptyCell(self, cell):
+        position = self._calcPositionCell(cell)
+        aroundCell = self.calcAroundCell(position)
+        for cell in aroundCell:
+            cell.open()
 
     def defeat(self):
         self.game = False
