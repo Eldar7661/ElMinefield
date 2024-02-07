@@ -113,7 +113,6 @@ class Game:
 
     def __init__(self, window):
 
-        print('init Game')
         self.window = window
 
         self.game = True
@@ -297,6 +296,8 @@ class Game:
         else:
             self._amountMarked -= 1
 
+        self.window.set_header_count_marked(self._amountMarked)
+
     def cell_change_size(self):
 
         self._cell_calc_size()
@@ -344,7 +345,12 @@ class Window(QMainWindow):
         self._height = 935
         # self._bodyPosX = 0
         self._menuHeight = 30
-        self._headerHeight = 50
+        self._headerHeight = 55
+        self._headerBoardAlignV = 5
+        self._headerBoardLabelWidth = 22
+        self._headerBoardLabelMargin = 3
+        self._headerBoardWidth = (self._headerBoardLabelWidth + self._headerBoardLabelMargin) * 3
+        self._headerBoardHeight = self._headerHeight - (self._headerBoardAlignV * 2)
 
         self.title = 'Minesweeper';
         self.resized.connect(self._change_size)
@@ -353,10 +359,10 @@ class Window(QMainWindow):
 
         self._createMenu()
         self._createBody()
+        self._createHeader()
 
     def _change_size(self):
 
-        print('change size')
         self._width = self.size().width();
         self._height = self.size().height();
 
@@ -386,17 +392,40 @@ class Window(QMainWindow):
     def _createBody(self):
 
         self.body = QtWidgets.QWidget(self)
-        self.header = QtWidgets.QWidget(self.body)
         self.field = QtWidgets.QWidget(self.body)
 
-        # self.body.setStyleSheet('border: 6px inset #828282')
-        self.header.setStyleSheet('background-color: grey; border: 6px inset #929292')
-        # self.field.setStyleSheet('background-color: grey;')
-
         self._adjustment_size()
-        print('create body')
+
+    def _createHeader(self):
+
+        self.header = QtWidgets.QWidget(self.body)
+        self.header.setStyleSheet('background-color: grey; ') #border: 6px inset #929292
+
+        self.headerCountMarkedBoard = QtWidgets.QWidget(self.header)
+        self.headerCountMarkedBoardLabel1 = QtWidgets.QLabel(self.headerCountMarkedBoard)
+        self.headerCountMarkedBoardLabel2 = QtWidgets.QLabel(self.headerCountMarkedBoard)
+        self.headerCountMarkedBoardLabel3 = QtWidgets.QLabel(self.headerCountMarkedBoard)
+
+        self.headerCountMarkedBoard.setGeometry(30, self._headerBoardAlignV, self._headerBoardWidth, self._headerBoardHeight)
+
+        headerCountMarkedBoardLabel_pos = self._headerBoardLabelWidth + self._headerBoardLabelMargin
+        self.headerCountMarkedBoardLabel1.setGeometry(0, 0, self._headerBoardLabelWidth, self._headerBoardHeight)
+        self.headerCountMarkedBoardLabel2.setGeometry(headerCountMarkedBoardLabel_pos, 0, self._headerBoardLabelWidth, self._headerBoardHeight)
+        self.headerCountMarkedBoardLabel3.setGeometry(headerCountMarkedBoardLabel_pos * 2, 0, self._headerBoardLabelWidth, self._headerBoardHeight)
+
+        self.headerCountMarkedBoardLabel1.setPixmap(QtGui.QPixmap('./image/digital_tube/dt_0.png').scaled(self._headerBoardLabelWidth, self._headerBoardHeight))
+        self.headerCountMarkedBoardLabel2.setPixmap(QtGui.QPixmap('./image/digital_tube/dt_0.png').scaled(self._headerBoardLabelWidth, self._headerBoardHeight))
+        self.headerCountMarkedBoardLabel3.setPixmap(QtGui.QPixmap('./image/digital_tube/dt_0.png').scaled(self._headerBoardLabelWidth, self._headerBoardHeight))
+
+    def set_header_count_marked(self, id):
+
+        img = QtGui.QPixmap(f'image/digital_tube/dt_{id}.png')
+        self.headerCountMarkedBoardLabel3.setPixmap(img.scaled(self._headerBoardLabelWidth, self._headerBoardHeight))
+        # self.img = QtGui.QPixmap(f'image/cell/cell_{id}.bmp')
+        # self._image_adjustment()
 
     def set_field_alignHCenter(self, alignHCenter):
+
         headerWidth = (self.body.size().width() - (alignHCenter * 2))
         self.header.setGeometry(alignHCenter, 0, headerWidth, self._headerHeight)
 
