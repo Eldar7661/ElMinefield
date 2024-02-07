@@ -26,7 +26,8 @@ class Cell(QtWidgets.QPushButton):
 
         self._amountBombAround = 0
         self._opened = False
-        self._marked = False
+        self._markedFlag = False
+        self._markedSupposed = False
         self._role = 'empty'
         self.img = QtGui.QPixmap('image/cell/cell_11.bmp')
         self.imgLabel = QtWidgets.QLabel(self)
@@ -38,14 +39,20 @@ class Cell(QtWidgets.QPushButton):
 
     def _set_mark(self):
 
-        self._marked = not self._marked
-
-        if self._marked:
-            self._game.set_amount_marked(True)
-            self._set_image(10)
-        else:
+        if self._markedFlag:
+            self._markedFlag = False
+            self._markedSupposed = True
             self._game.set_amount_marked(False)
+            self._set_image(10)
+
+        elif self._markedSupposed:
+            self._markedSupposed = False
             self._set_image(11)
+
+        else:
+            self._markedFlag = True
+            self._game.set_amount_marked(True)
+            self._set_image(9)
 
     def _set_image(self, id):
 
@@ -58,7 +65,7 @@ class Cell(QtWidgets.QPushButton):
         self.imgLabel.setPixmap(self.img.scaled(self._size, self._size))
 
     def set_role(self, role):
-        # self._set_image(9)
+        # self._set_image(12)
         if self._role == 'bomb':
             return False
         else:
@@ -83,7 +90,7 @@ class Cell(QtWidgets.QPushButton):
         self._opened = True
         self.setCursor(QtCore.Qt.ArrowCursor)
 
-        if (self._marked):
+        if (self._markedFlag):
             self._game.set_amount_marked(False)
 
         if self._role == 'empty':
@@ -99,13 +106,14 @@ class Cell(QtWidgets.QPushButton):
 
         self.setCursor(QtCore.Qt.ArrowCursor)
         if (self._role == 'bomb'):
-            self._set_image(9)
+            self._set_image(12)
 
 
 class Game:
 
     def __init__(self, window):
 
+        print('init Game')
         self.window = window
 
         self.game = True
@@ -135,8 +143,6 @@ class Game:
         for i in range(self.level[1]):
             self._cells.append([])
             for j in range(self.level[0]):
-                # x = self._cellSize * j
-                # y = self._cellSize * i
 
                 cell = Cell(self, self.window.field, self._cellSize)
                 self._cells[i].append(cell)
@@ -227,6 +233,8 @@ class Game:
         countY = 0
         CellsGeneralWindth = self._cellSize * self.level[0]
         alignHCenter = int((self.window.field.size().width() / 2) - (CellsGeneralWindth / 2))
+        self.window.set_field_alignHCenter(alignHCenter)
+
         for row in self._cells:
             for cell in row:
                 posX = countX * self._cellSize + alignHCenter
@@ -301,8 +309,7 @@ class Game:
         aroundCell = self._cell_calc_around_cells(position)
         for cell in aroundCell:
             cell.opening()
-    def get_cell_size(self):
-        return self._cellSize
+
     def defeat(self):
 
         self.game = False
@@ -337,7 +344,7 @@ class Window(QMainWindow):
         self._height = 935
         # self._bodyPosX = 0
         self._menuHeight = 30
-        self._headerHeight = 30
+        self._headerHeight = 50
 
         self.title = 'Minesweeper';
         self.resized.connect(self._change_size)
@@ -349,15 +356,10 @@ class Window(QMainWindow):
 
     def _change_size(self):
 
+        print('change size')
         self._width = self.size().width();
         self._height = self.size().height();
 
-        # cellSize = self.game.get_cell_size()
-        # fieldWidth = cellSize * self.game.level[0]
-        # fieldHeight = cellSize * self.game.level[1]
-        #
-
-        # self.field.setGeometry(alignHCenter, 0, fieldWidth, fieldHeight)
         self._adjustment_size()
         self.game.cell_change_size()
 
@@ -368,7 +370,6 @@ class Window(QMainWindow):
         fieldHeight = bodyHeight - self._headerHeight
 
         self.body.setGeometry(0, self._menuHeight, bodyWidth, bodyHeight)
-        self.header.setGeometry(0, 0, bodyWidth, self._headerHeight)
         self.field.setGeometry(0, self._headerHeight, bodyWidth, fieldHeight)
 
     def _createMenu(self):
@@ -388,10 +389,16 @@ class Window(QMainWindow):
         self.header = QtWidgets.QWidget(self.body)
         self.field = QtWidgets.QWidget(self.body)
 
-        self.header.setStyleSheet('background-color: red;')
-        self.field.setStyleSheet('background-color: grey;')
+        # self.body.setStyleSheet('border: 6px inset #828282')
+        self.header.setStyleSheet('background-color: grey; border: 6px inset #929292')
+        # self.field.setStyleSheet('background-color: grey;')
 
         self._adjustment_size()
+        print('create body')
+
+    def set_field_alignHCenter(self, alignHCenter):
+        headerWidth = (self.body.size().width() - (alignHCenter * 2))
+        self.header.setGeometry(alignHCenter, 0, headerWidth, self._headerHeight)
 
     def set_field_min_size(self, w, h):
 
