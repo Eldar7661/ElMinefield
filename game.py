@@ -36,7 +36,6 @@ class Cell(QtWidgets.QPushButton):
         self.img = QtGui.QPixmap('image/cell/cell_11.bmp')
         self.imgLabel = QtWidgets.QLabel(self)
 
-        # self.setGeometry(self._pos_x, self._pos_y, self._size, self._size)
         self.setCursor(QtCore.Qt.PointingHandCursor)
 
         self._image_adjustment()
@@ -84,6 +83,7 @@ class Cell(QtWidgets.QPushButton):
 
         self._size = size
         self.setGeometry(posX, posY, self._size, self._size)
+        self.show()
         self._image_adjustment()
 
     def opening(self):
@@ -120,32 +120,54 @@ class Game:
 
         self.window = window
 
-        self.game = True
-        self.started = False
-        self.level = [2, 2, 1]
-        self._stopwatch = QtCore.QTimer()
-        self._stopwatch.setInterval(1000)
-        self._stopwatch.timeout.connect(self.tick)
-        self._time = 0
-
         self._cellMinSize = 35
-        self._cellSize = 35
         self._cellMaxAmountX = 0
         self._cellMaxAmountY = 0
+        self._cellSize = 35
+
+        self.level = [10, 10, 20]
+        self.victoryAmountCellOpened = (self.level[0] * self.level[1]) - self.level[2]
+        self._calc_min_size_field()
+
+
+        self._stopwatch = QtCore.QTimer()
+        self._stopwatch.setInterval(1000)
+        self._stopwatch.timeout.connect(self._tick)
+
+        self._cell_calc_max_amount()
+        self.restart()
+
+    def restart(self):
+
+        self.game = True
+        self.started = False
+        self._cellsGeneralSize = 0
+
+        self._stopwatch.stop()
+        self._time = 0
+        self._amountMarked = 0
+        self._cellAmountOpened = 0
+
+        try:
+            for row in self._cells:
+                for cell in row:
+                    cell.deleteLater()
+        except:
+            pass
 
         self._cells = []
         self._bombs = []
-        self._amountMarked = 0
 
-        self._cellAmountOpened = 0
-        self.victoryAmountCellOpened = (self.level[0] * self.level[1]) - self.level[2]
-
-        self._cell_calc_max_amount()
         if self._cell_create():
             self._bomb_create()
-            self._calc_min_size_field()
+            self._cell_calc_size()
+            self._cell_set_geometry()
         else:
             print(f'Error: maximum amount cells\nx: {self._cellMaxAmountX}, y: {self._cellMaxAmountY}')
+
+        self.window.set_header_stopwatch(0)
+        self.window.set_header_count_marked(0)
+        self.window.set_header_btn_image('default')
 
     def _cell_create(self):
 
@@ -243,9 +265,8 @@ class Game:
 
         countX = 0
         countY = 0
-        CellsGeneralWindth = self._cellSize * self.level[0]
-        alignHCenter = int((self.window.field.size().width() / 2) - (CellsGeneralWindth / 2))
-        self.window.set_field_alignHCenter(alignHCenter)
+        self._cellsGeneralSize = self._cellSize * self.level[0]
+        alignHCenter = int((self.window.field.size().width() / 2) - (self._cellsGeneralSize / 2))
 
         for row in self._cells:
             for cell in row:
@@ -258,10 +279,13 @@ class Game:
                     countX = 0
                     countY += 1
 
+        return alignHCenter
+
     def _cell_calc_max_amount(self):
 
         self._cellMaxAmountX = int(self.window.field.size().width() / self._cellMinSize)
         self._cellMaxAmountY = int(self.window.field.size().height() / self._cellMinSize)
+        # print(f'maximum amount cells\nx: {self._cellMaxAmountX}, y: {self._cellMaxAmountY}')
 
     def _bomb_create(self):
 
@@ -314,7 +338,8 @@ class Game:
     def cell_change_size(self):
 
         self._cell_calc_size()
-        self._cell_set_geometry()
+        alignHCenter = self._cell_set_geometry()
+        self.window.set_field_alignHCenter(alignHCenter)
         self._cell_calc_max_amount()
 
     def opening_around_cells(self, cell):
@@ -324,7 +349,7 @@ class Game:
         for cell in aroundCell:
             cell.opening()
 
-    def tick(self):
+    def _tick(self):
         self._time += 1
         self.window.set_header_stopwatch(self._time)
         if (self._time == 999):
@@ -347,9 +372,9 @@ class Game:
         if scenario == 'defeat':
             for bomb in self._bombs:
                 bomb.explode()
-            self.window.set_header_title(scenario)
+            self.window.set_header_btn_image('defeat')
         else:
-            self.window.set_header_title(scenario)
+            self.window.set_header_btn_image('defeat')
 
     def cell_opening(self, role):
 
@@ -361,6 +386,8 @@ class Game:
             if self._cellAmountOpened == self.victoryAmountCellOpened:
                 self.end('victory')
 
+    def get_cells_general_size(self):
+        return self._cellsGeneralSize
 
 class Window(QMainWindow):
 
@@ -374,7 +401,7 @@ class Window(QMainWindow):
     def keyPressEvent(self, event):
         print(event.key())
         if event.key() == 66:
-            self.remove_header_title()
+            self.game.restart()
 
 
     def __init__(self):
@@ -387,27 +414,32 @@ class Window(QMainWindow):
         self._headerCountMarkedBoard = 'array'
         self._headerStopwatchBoard = 'array'
         self._headerButton = 'Button'
+        self._headerButtonLabel = 'Label'
+        self._headerButtonImg = 'Pixmap'
         self._headerTitle = 'Label'
 
-        self._width = 200
-        self._height = 200
-        # self._bodyPosX = 0
+        self._posX = 750
+        self._posY = 150
+        self._width = 450
+        self._height = 450
         self._menuHeight = 30
 
-        self._headerHeight = 60
-        self._headerAlignV = 4
 
-        self._headerBoardLabelMargin = 3
-        self._headerBoardLabelHeight = self._headerHeight - (self._headerAlignV * 2)
-        self._headerBoardLabelWidth = int(self._headerBoardLabelHeight / 2)
+        self._headerHeight = 0
 
-        self._headerBoardWidth = (self._headerBoardLabelWidth + self._headerBoardLabelMargin) * 3
-        self._headerBoardHeight = self._headerBoardLabelHeight
+        self._headerBoardAlignV = 0
+        self._headerBoardLabelMargin = 0
+        self._headerBoardLabelHeight = 0
+        self._headerBoardLabelWidth = 0
+
+        self._headerBoardWidth = 0
+        self._headerBoardHeight = 0
+
 
         self.title = 'Minesweeper';
         self.resized.connect(self._change_size)
         self.setWindowTitle(self.title)
-        self.setGeometry(720, 150, self._width, self._height)
+        self.setGeometry(self._posX, self._posY, self._width, self._height)
 
         self._createMenu()
         self._createBody()
@@ -425,10 +457,55 @@ class Window(QMainWindow):
 
         bodyWidth = self._width
         bodyHeight = self._height - self._menuHeight;
-        fieldHeight = bodyHeight - self._headerHeight
+        fieldHeight = int(bodyHeight / 1.15)
 
         self.body.setGeometry(0, self._menuHeight, bodyWidth, bodyHeight)
-        self.field.setGeometry(0, self._headerHeight, bodyWidth, fieldHeight)
+        self.field.setGeometry(0, bodyHeight - fieldHeight, bodyWidth, fieldHeight)
+
+    def _adjustment_size_header(self, alignHCenter):
+
+        self._headerHeight = int(self.game.get_cells_general_size() * 0.15)
+        headerWidth = (self.body.size().width() - (alignHCenter * 2))
+        self.header.setGeometry(alignHCenter, 0, headerWidth, self._headerHeight)
+
+        self._headerBoardHeight = int(self._headerHeight * 0.8)
+        self._headerBoardAlignV = int(self._headerHeight * 0.1)
+        self._headerBoardPadding = int(self._headerBoardHeight * 0.1)
+
+        self._headerBoardLabelMargin = 5
+        self._headerBoardLabelHeight = int(self._headerBoardHeight * 0.8)
+        self._headerBoardLabelWidth = int(self._headerBoardLabelHeight / 2)
+
+        self._headerBoardWidth = (self._headerBoardLabelWidth * 3) + (self._headerBoardLabelMargin * 2) + (self._headerBoardPadding * 2)
+
+
+        boardCountAlignV = self._headerBoardAlignV
+        boardStopwatchAlignV = headerWidth - self._headerBoardWidth - boardCountAlignV
+        headerBtnX = int((headerWidth / 2) - (self._headerBoardHeight / 2))
+
+        self._adjustment_size_header_board(self._headerCountMarkedBoard, boardCountAlignV)
+        self._adjustment_size_header_board(self._headerStopwatchBoard, boardStopwatchAlignV)
+        self._headerButton.setGeometry(headerBtnX, self._headerBoardAlignV, self._headerBoardHeight, self._headerBoardHeight)
+        self._headerButtonLabel.setFixedSize(self._headerBoardHeight, self._headerBoardHeight)
+        self._headerButtonLabel.setPixmap(self._headerButtonImg.scaled(self._headerBoardHeight, self._headerBoardHeight))
+
+        try:
+            self._headerTitle.setFixedSize(headerWidth, self._headerHeight)
+            fontSize = int(self._headerHeight * 0.5)
+            self._headerTitle.setFont(QtGui.QFont('SAIBA-45', fontSize))
+        except:
+            pass
+
+    def _adjustment_size_header_board(self, board, alignVCenter):
+
+        board[0].setGeometry(alignVCenter, self._headerBoardAlignV, self._headerBoardWidth, self._headerBoardHeight)
+
+        boardLabel_pos = self._headerBoardLabelWidth + self._headerBoardLabelMargin
+        for i in range(3):
+            board[1][i].setGeometry((boardLabel_pos * i) + self._headerBoardPadding, self._headerBoardPadding, self._headerBoardLabelWidth, self._headerBoardLabelHeight)
+
+        for i in range(3):
+            board[1][i].setPixmap(board[2][i].scaled(self._headerBoardLabelWidth, self._headerBoardLabelHeight))
 
     def _createMenu(self):
 
@@ -441,6 +518,8 @@ class Window(QMainWindow):
         game.addAction(QtWidgets.QAction('Заново', self))
         game.addAction(QtWidgets.QAction('Новый уровень', self))
 
+        self._menuHeight = int(menu.size().height())
+
     def _createBody(self):
 
         self.body = QtWidgets.QWidget(self)
@@ -451,16 +530,20 @@ class Window(QMainWindow):
     def _createHeader(self):
 
         self.header = QtWidgets.QWidget(self.body)
-        self.header.setStyleSheet('background-color: grey; ') #border: 6px inset #929292
+        self.header.setStyleSheet('background-color: grey; ')
 
         self._headerCountMarkedBoard = self._create_board()
         self._headerStopwatchBoard = self._create_board()
-        self._headerButton = QtWidgets.QPushButton(self.header)
+
+        self._headerButton = HeaderButton(self, self.header)
+        # self._headerButton.setStyleSheet('border: 2px inset #929292')
         self._headerButton.setCursor(QtCore.Qt.PointingHandCursor)
-        self._headerButton.setGeometry(450, self._headerAlignV, self._headerBoardHeight, self._headerBoardHeight)
+        self._headerButtonLabel = QtWidgets.QLabel(self._headerButton)
+
 
     def _create_board(self):
         board = QtWidgets.QWidget(self.header)
+        board.setStyleSheet('background:black;border-radius:3px;')
         boardFull = [
             board,
             [
@@ -475,58 +558,12 @@ class Window(QMainWindow):
             ]
         ]
 
-        boardFull[0].setFixedSize(self._headerBoardWidth, self._headerBoardHeight)
-
-        headerCountMarkedBoardLabel_pos = self._headerBoardLabelWidth + self._headerBoardLabelMargin
-        for i in range(3):
-            boardFull[1][i].setGeometry(headerCountMarkedBoardLabel_pos * i, 0, self._headerBoardLabelWidth, self._headerBoardLabelHeight)
-
-        for i in range(3):
-            boardFull[1][i].setPixmap(boardFull[2][i].scaled(self._headerBoardLabelWidth, self._headerBoardLabelHeight))
-
         return boardFull
 
-    def set_header_title(self, scenario):
+    def set_header_btn_image(self, src):
 
-        self._headerTitle = QtWidgets.QLabel(self.header)
-        # self._headerTitle[0].setStyleSheet('background: grey;')
-        self._headerTitle.setGeometry(0, 0, self.header.size().width(), self.header.size().height())
-        self._headerTitle.setStyleSheet('color: black; font-size: 52px;')
-        self._headerTitle.setFont(QtGui.QFont('SAIBA-45'))
-        self._headerTitle.setAlignment(QtCore.Qt.AlignCenter)
-        if scenario == 'defeat':
-            self._headerTitle.setText('DEFEAT')
-        else:
-            self._headerTitle.setText('WIN')
-
-        self._headerTitle.show()
-
-    def remove_header_title(self):
-        try:
-            self._headerTitle.deleteLater()
-            self._headerTitle = 'QLabel'
-        except:
-            pass
-
-    def set_header_count_marked(self, number):
-
-        numbers = self._board_convert_number(number)
-
-        for i in range(3):
-            self._headerCountMarkedBoard[2][i] = QtGui.QPixmap(f'image/digital_tube/dt_{numbers[i]}.png')
-
-        for i in range(3):
-            self._headerCountMarkedBoard[1][i].setPixmap(self._headerCountMarkedBoard[2][i].scaled(self._headerBoardLabelWidth, self._headerBoardLabelHeight))
-
-    def set_header_stopwatch(self, number):
-
-        numbers = self._board_convert_number(number)
-
-        for i in range(3):
-            self._headerStopwatchBoard[2][i] = QtGui.QPixmap(f'image/digital_tube/dt_{numbers[i]}.png')
-
-        for i in range(3):
-            self._headerStopwatchBoard[1][i].setPixmap(self._headerStopwatchBoard[2][i].scaled(self._headerBoardLabelWidth, self._headerBoardLabelHeight))
+        self._headerButtonImg = QtGui.QPixmap(f'./image/smiley/{src}.png')
+        self._headerButtonLabel.setPixmap(self._headerButtonImg.scaled(self._headerBoardHeight, self._headerBoardHeight))
 
     def _board_convert_number(self, number):
         x = number % 10
@@ -539,45 +576,62 @@ class Window(QMainWindow):
 
         return numbers
 
+    def _set_header_board(self, board, number):
+
+        numbers = self._board_convert_number(number)
+
+        for i in range(3):
+            board[2][i] = QtGui.QPixmap(f'image/digital_tube/dt_{numbers[i]}.png')
+
+        for i in range(3):
+            board[1][i].setPixmap(board[2][i].scaled(self._headerBoardLabelWidth, self._headerBoardLabelHeight))
+
+
     def set_field_alignHCenter(self, alignHCenter):
 
-        headerWidth = (self.body.size().width() - (alignHCenter * 2))
-        self.header.setGeometry(alignHCenter, 0, headerWidth, self._headerHeight)
-
-        try:
-            self._headerTitle.setFixedSize(headerWidth, self._headerHeight)
-        except:
-            pass
-
-        alignBoard = 30
-        headerElemWidth = (self._headerBoardWidth * 2) + self._headerBoardHeight
-        if headerElemWidth >= headerWidth:
-            return False
-        elif (alignBoard * 2) + headerElemWidth >= headerWidth:
-            alignBoard = 0
-
-        headerBtnX = int((headerWidth / 2) - (self._headerBoardHeight / 2))
-        self._headerCountMarkedBoard[0].move(alignBoard, self._headerAlignV)
-        self._headerStopwatchBoard[0].move(headerWidth - (self._headerBoardWidth + alignBoard), self._headerAlignV)
-        self._headerButton.move(headerBtnX, self._headerAlignV)
+        self._adjustment_size_header(alignHCenter)
 
     def set_field_min_size(self, w, h):
 
         h += self._menuHeight + self._headerHeight
         self.setMinimumSize(w, h)
 
+    def set_header_stopwatch(self, number):
+
+        # self.setWindowTitle(f'{self.title} : {number}s')
+        self._set_header_board(self._headerStopwatchBoard, number)
+
+    def set_header_count_marked(self, number):
+
+        self._set_header_board(self._headerCountMarkedBoard, number)
+
     def setGame(self, game):
 
         self.game = game
+        self._headerButton.clicked.connect(self.game.restart)
 
 
+class HeaderButton(QtWidgets.QPushButton):
 
+    def __init__(self, window, parrent):
+        super(HeaderButton, self).__init__(parrent)
+        self.window = window
+
+    def enterEvent(self, QEvent):
+
+        if (self.window.game.game):
+            self.window.set_header_btn_image('hover')
+
+    def leaveEvent(self, QEvent):
+
+        if (self.window.game.game):
+            self.window.set_header_btn_image('default')
 
 
 def application():
 
     app = QApplication(sys.argv)
-    QtGui.QFontDatabase.addApplicationFont('./font/SAIBA-45.otf')
+    # QtGui.QFontDatabase.addApplicationFont('./font/SAIBA-45.otf')
     window = Window()
     game = Game(window)
     window.setGame(game)
