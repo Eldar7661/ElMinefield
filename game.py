@@ -125,17 +125,17 @@ class Game:
         self._cellMaxAmountY = 0
         self._cellSize = 35
 
-        self.level = [10, 10, 20]
-        self.victoryAmountCellOpened = (self.level[0] * self.level[1]) - self.level[2]
-        self._calc_min_size_field()
-
-
         self._stopwatch = QtCore.QTimer()
         self._stopwatch.setInterval(1000)
         self._stopwatch.timeout.connect(self._tick)
 
         self._cell_calc_max_amount()
-        self.restart()
+
+    def set_level(self, level):
+
+        self.level = level
+        self.victoryAmountCellOpened = (self.level[0] * self.level[1]) - self.level[2]
+        self._calc_min_size_field()
 
     def restart(self):
 
@@ -389,6 +389,9 @@ class Game:
     def get_cells_general_size(self):
         return self._cellsGeneralSize
 
+    def get_cells_max_amount(self):
+        return [self._cellMaxAmountX, self._cellMaxAmountY]
+
 class Window(QMainWindow):
 
     resized = QtCore.pyqtSignal()
@@ -398,16 +401,18 @@ class Window(QMainWindow):
         self.resized.emit()
         return super(Window, self).resizeEvent(event)
 
-    def keyPressEvent(self, event):
-        print(event.key())
-        if event.key() == 66:
-            self.game.restart()
+    # def keyPressEvent(self, event):
+    #     print(event.key())
+    #     if event.key() == 66:
+    #         self.game.restart()
 
 
     def __init__(self):
         super(Window, self).__init__()
 
         self.game = 'obj'
+        self._menu = self.menuBar()
+        self._game = self._menu.addMenu('Game')
         self.body = 'Widget'
         self.header = 'Widget'
         self.field = 'Widget'
@@ -422,7 +427,7 @@ class Window(QMainWindow):
         self._posY = 150
         self._width = 450
         self._height = 450
-        self._menuHeight = 30
+        self._menuHeight = int(self._menu.size().height())
 
 
         self._headerHeight = 0
@@ -441,7 +446,6 @@ class Window(QMainWindow):
         self.setWindowTitle(self.title)
         self.setGeometry(self._posX, self._posY, self._width, self._height)
 
-        self._createMenu()
         self._createBody()
         self._createHeader()
 
@@ -507,19 +511,6 @@ class Window(QMainWindow):
         for i in range(3):
             board[1][i].setPixmap(board[2][i].scaled(self._headerBoardLabelWidth, self._headerBoardLabelHeight))
 
-    def _createMenu(self):
-
-        menu = self.menuBar()
-        game = menu.addMenu('Игра')
-        settings = menu.addMenu('Настройки')
-        aboud = menu.addMenu('Oб проекте')
-
-        play = game.addAction(QtWidgets.QAction('Играть', self))
-        game.addAction(QtWidgets.QAction('Заново', self))
-        game.addAction(QtWidgets.QAction('Новый уровень', self))
-
-        self._menuHeight = int(menu.size().height())
-
     def _createBody(self):
 
         self.body = QtWidgets.QWidget(self)
@@ -540,6 +531,34 @@ class Window(QMainWindow):
         self._headerButton.setCursor(QtCore.Qt.PointingHandCursor)
         self._headerButtonLabel = QtWidgets.QLabel(self._headerButton)
 
+
+    def _create_menu_action(self):
+
+        global app
+
+        gameRestart = QtWidgets.QAction(QtGui.QIcon('image/smiley/hover.png'), '&Restart', self)
+        gameNewLevel = QtWidgets.QAction(QtGui.QIcon('image/smiley/hover.png'), '&New Level', self)
+        gameExit = QtWidgets.QAction(QtGui.QIcon('image/smiley/hover.png'), '&Exit', self)
+        settings = QtWidgets.QAction('&Settings', self)
+        aboud = QtWidgets.QAction('&About the project', self)
+
+        gameRestart.setShortcut('Ctrl+R')
+        gameNewLevel.setShortcut('Ctrl+N')
+        gameExit.setShortcut('Ctrl+Q')
+        settings.setShortcut('Ctrl+S')
+        aboud.setShortcut('Ctrl+H')
+
+        gameRestart.triggered.connect(self.game.restart)
+        gameNewLevel.triggered.connect(self._new_level)
+        gameExit.triggered.connect(lambda: sys.exit(app.exec_()))
+        settings.triggered.connect(lambda: print('click'))
+        aboud.triggered.connect(lambda: print('click'))
+
+        self._menu.addAction(settings)
+        self._menu.addAction(aboud)
+        self._game.addAction(gameRestart)
+        self._game.addAction(gameNewLevel)
+        self._game.addAction(gameExit)
 
     def _create_board(self):
         board = QtWidgets.QWidget(self.header)
@@ -586,6 +605,10 @@ class Window(QMainWindow):
         for i in range(3):
             board[1][i].setPixmap(board[2][i].scaled(self._headerBoardLabelWidth, self._headerBoardLabelHeight))
 
+    def _new_level(self):
+
+        self.window_level = WindowLevel(self, self._posX, self._posY)
+        # self.setWindowFlags(QtCore.Qt.WindowDoesNotAcceptFocus)
 
     def set_field_alignHCenter(self, alignHCenter):
 
@@ -609,6 +632,7 @@ class Window(QMainWindow):
 
         self.game = game
         self._headerButton.clicked.connect(self.game.restart)
+        self._create_menu_action()
 
 
 class HeaderButton(QtWidgets.QPushButton):
@@ -627,13 +651,105 @@ class HeaderButton(QtWidgets.QPushButton):
         if (self.window.game.game):
             self.window.set_header_btn_image('default')
 
+class WindowLevel(QtWidgets.QDialog):
+
+    def __init__(self, window, posX, posY):
+        super(WindowLevel, self).__init__(window, QtCore.Qt.Window)
+
+        self.setWindowFlags(QtCore.Qt.Dialog)
+        self.setWindowModality(QtCore.Qt.WindowModal)
+        self.window = window
+        self._width = 320
+        self._height = 240
+
+        self.setWindowTitle('New Level')
+        self.setStyleSheet('background-color: grey;')
+        self.setGeometry(posX, posY, self._width, self._height)
+
+        self.body = QtWidgets.QWidget(self)
+        self.body.resize(self._width, self._height)
+
+        self._x = 5
+        self._y = 5
+        self._b = 10
+        self.maxs = self.window.game.get_cells_max_amount()
+
+        self.rangeH = self._create_range(5, 5, 'Amount Cells in H: 5', 2, self.maxs[0], self.d)
+        self.rangeV = self._create_range(5, 30, 'Amount Cells in V: 5', 2, self.maxs[1], self.s)
+        self.rangeB = self._create_range(5, 60, 'Amount Bomb: 10', 1, (self._x * self._y) - 1, self.f)
+
+        self.btn = QtWidgets.QPushButton(self.body)
+        self.btn.setText('Play')
+        self.btn.setGeometry(int(self.body.size().width() / 2) - 30, 100, 60, 40)
+        self.btn.clicked.connect(self._play)
+
+        self.description = QtWidgets.QLabel(self.body)
+        self.description.setGeometry(0, 150, self._width, 50)
+        self.description.setAlignment(QtCore.Qt.AlignCenter)
+        self.description.setText(f'''Cells max with width({self.window.size().width()}) and height({self.window.size().height()}).\nInput range can move with helping (←, →, ↑, ↓)''')
+
+        self.show()
+
+    def d(self):
+        self._x = self.rangeH[2].value()
+        self.rangeH[1].setText(f'Amount Cells in H: {self._x}')
+        self.rangeH[1].adjustSize()
+
+        self._set_bomb_max()
+
+    def s(self):
+        self._y = self.rangeV[2].value()
+        self.rangeV[1].setText(f'Amount Cells in V: {self._y}')
+        self.rangeV[1].adjustSize()
+
+        self._set_bomb_max()
+
+    def f(self):
+        self._b = self.rangeB[2].value()
+        self.rangeB[1].setText(f'Amount Bomb: {self._b}')
+        self.rangeB[1].adjustSize()
+
+    def _set_bomb_max(self):
+
+        self.rangeB[2].setMaximum((self._x * self._y) - 1)
+
+    def _play(self):
+
+        self.window.game.set_level([self._x, self._y, self._b])
+        self.window.game.restart()
+        self.deleteLater()
+
+    def _create_range(self, posX, posY, text, valueMin, valueMax, func):
+
+        rangeH = QtWidgets.QWidget(self.body)
+        rangeH.move(posX, posY)
+
+        rangeHText = QtWidgets.QLabel(rangeH)
+        rangeHText.setText(text)
+        rangeHText.adjustSize()
+
+        rangeHInput = QtWidgets.QSlider(rangeH)
+        rangeHInput.setRange(valueMin, valueMax)
+        rangeHInput.setSingleStep(1)
+        rangeHInput.setSliderPosition(5)
+        rangeHInput.setOrientation(QtCore.Qt.Horizontal)
+        rangeHInput.valueChanged.connect(func)
+        rangeHInput.setGeometry(rangeHText.size().width() + 20, 0, 100, 30)
+
+        rangeH.adjustSize()
+
+        return [rangeH, rangeHText, rangeHInput]
 
 def application():
+
+    global app
 
     app = QApplication(sys.argv)
     # QtGui.QFontDatabase.addApplicationFont('./font/SAIBA-45.otf')
     window = Window()
     game = Game(window)
+    game.set_level([10, 10, 20])
+    game.restart()
     window.setGame(game)
 
     window.show()
