@@ -1,8 +1,8 @@
-from PyQt5 import QtWidgets, QtGui, QtCore
+from PyQt5 import QtWidgets, QtGui, QtCore, QtWebEngineWidgets
 from PyQt5.QtWidgets import QApplication, QMainWindow
 
 from random import randint
-from threading import Timer
+from pathlib import Path
 import sys
 
 
@@ -33,7 +33,7 @@ class Cell(QtWidgets.QPushButton):
         self._markedFlag = False
         self._markedSupposed = False
         self._role = 'empty'
-        self.img = QtGui.QPixmap('image/cell/cell_11.bmp')
+        self.img = QtGui.QPixmap('./image/cell/cell_11.bmp')
         self.imgLabel = QtWidgets.QLabel(self)
 
         self.setCursor(QtCore.Qt.PointingHandCursor)
@@ -52,14 +52,14 @@ class Cell(QtWidgets.QPushButton):
             self._markedSupposed = False
             self._set_image(11)
 
-        else:
+        elif not self._game.is_amount_marked():
             self._markedFlag = True
             self._game.set_amount_marked(True)
             self._set_image(9)
 
     def _set_image(self, id):
 
-        self.img = QtGui.QPixmap(f'image/cell/cell_{id}.bmp')
+        self.img = QtGui.QPixmap(f'./image/cell/cell_{id}.bmp')
         self._image_adjustment()
 
     def _image_adjustment(self):
@@ -68,7 +68,8 @@ class Cell(QtWidgets.QPushButton):
         self.imgLabel.setPixmap(self.img.scaled(self._size, self._size))
 
     def set_role(self, role):
-        self._set_image(12)
+        if self._game.get_modeCheat():
+            self._set_image(12)
         if self._role == 'bomb':
             return False
         else:
@@ -119,6 +120,8 @@ class Game:
     def __init__(self, window):
 
         self.window = window
+        self._modeCheat = False
+        self._modeEndlessMarking = True
 
         self._cellMinSize = 35
         self._cellMaxAmountX = 0
@@ -374,7 +377,7 @@ class Game:
                 bomb.explode()
             self.window.set_header_btn_image('defeat')
         else:
-            self.window.set_header_btn_image('defeat')
+            self.window.set_header_btn_image('win')
 
     def cell_opening(self, role):
 
@@ -385,6 +388,31 @@ class Game:
 
             if self._cellAmountOpened == self.victoryAmountCellOpened:
                 self.end('victory')
+
+    def is_amount_marked(self):
+
+        if self._modeEndlessMarking:
+            return False
+
+        if self._amountMarked >= self.level[2]:
+            return True
+        return False
+
+    def get_modeCheat(self):
+
+        return self._modeCheat
+
+    def get_modeEndlessMarking(self):
+
+        return self._modeEndlessMarking
+
+    def set_modeCheat(self, status):
+
+        self._modeCheat = status
+
+    def set_modeEndlessMarking(self, status):
+
+        self._modeEndlessMarking = status
 
     def get_cells_general_size(self):
         return self._cellsGeneralSize
@@ -421,7 +449,6 @@ class Window(QMainWindow):
         self._headerButton = 'Button'
         self._headerButtonLabel = 'Label'
         self._headerButtonImg = 'Pixmap'
-        self._headerTitle = 'Label'
 
         self._posX = 750
         self._posY = 150
@@ -442,6 +469,7 @@ class Window(QMainWindow):
 
 
         self.title = 'Minesweeper';
+        self.setWindowIcon(QtGui.QIcon('./image/icon.ico'))
         self.resized.connect(self._change_size)
         self.setWindowTitle(self.title)
         self.setGeometry(self._posX, self._posY, self._width, self._height)
@@ -493,13 +521,6 @@ class Window(QMainWindow):
         self._headerButtonLabel.setFixedSize(self._headerBoardHeight, self._headerBoardHeight)
         self._headerButtonLabel.setPixmap(self._headerButtonImg.scaled(self._headerBoardHeight, self._headerBoardHeight))
 
-        try:
-            self._headerTitle.setFixedSize(headerWidth, self._headerHeight)
-            fontSize = int(self._headerHeight * 0.5)
-            self._headerTitle.setFont(QtGui.QFont('SAIBA-45', fontSize))
-        except:
-            pass
-
     def _adjustment_size_header_board(self, board, alignVCenter):
 
         board[0].setGeometry(alignVCenter, self._headerBoardAlignV, self._headerBoardWidth, self._headerBoardHeight)
@@ -536,26 +557,26 @@ class Window(QMainWindow):
 
         global app
 
-        gameRestart = QtWidgets.QAction(QtGui.QIcon('image/smiley/hover.png'), '&Restart', self)
-        gameNewLevel = QtWidgets.QAction(QtGui.QIcon('image/smiley/hover.png'), '&New Level', self)
-        gameExit = QtWidgets.QAction(QtGui.QIcon('image/smiley/hover.png'), '&Exit', self)
+        gameRestart = QtWidgets.QAction(QtGui.QIcon('./image/menu/restart.bmp'), '&Restart', self)
+        gameNewLevel = QtWidgets.QAction(QtGui.QIcon('./image/menu/new_level.bmp'), '&New Level', self)
+        gameExit = QtWidgets.QAction(QtGui.QIcon('./image/menu/exit.bmp'), '&Exit', self)
         settings = QtWidgets.QAction('&Settings', self)
-        aboud = QtWidgets.QAction('&About the project', self)
+        about = QtWidgets.QAction('&About the project', self)
 
         gameRestart.setShortcut('Ctrl+R')
         gameNewLevel.setShortcut('Ctrl+N')
         gameExit.setShortcut('Ctrl+Q')
         settings.setShortcut('Ctrl+S')
-        aboud.setShortcut('Ctrl+H')
+        about.setShortcut('Ctrl+H')
 
         gameRestart.triggered.connect(self.game.restart)
         gameNewLevel.triggered.connect(self._new_level)
         gameExit.triggered.connect(lambda: sys.exit(app.exec_()))
-        settings.triggered.connect(lambda: print('click'))
-        aboud.triggered.connect(lambda: print('click'))
+        settings.triggered.connect(self._settings)
+        about.triggered.connect(self._about)
 
         self._menu.addAction(settings)
-        self._menu.addAction(aboud)
+        self._menu.addAction(about)
         self._game.addAction(gameRestart)
         self._game.addAction(gameNewLevel)
         self._game.addAction(gameExit)
@@ -571,9 +592,9 @@ class Window(QMainWindow):
                 QtWidgets.QLabel(board)
             ],
             [
-                QtGui.QPixmap('./image/digital_tube/dt_0.png'),
-                QtGui.QPixmap('./image/digital_tube/dt_0.png'),
-                QtGui.QPixmap('./image/digital_tube/dt_0.png'),
+                QtGui.QPixmap('./image/board/digit_0.bmp'),
+                QtGui.QPixmap('./image/board/digit_0.bmp'),
+                QtGui.QPixmap('./image/board/digit_0.bmp'),
             ]
         ]
 
@@ -581,7 +602,7 @@ class Window(QMainWindow):
 
     def set_header_btn_image(self, src):
 
-        self._headerButtonImg = QtGui.QPixmap(f'./image/smiley/{src}.png')
+        self._headerButtonImg = QtGui.QPixmap(f'./image/smiley/{src}.bmp')
         self._headerButtonLabel.setPixmap(self._headerButtonImg.scaled(self._headerBoardHeight, self._headerBoardHeight))
 
     def _board_convert_number(self, number):
@@ -600,15 +621,23 @@ class Window(QMainWindow):
         numbers = self._board_convert_number(number)
 
         for i in range(3):
-            board[2][i] = QtGui.QPixmap(f'image/digital_tube/dt_{numbers[i]}.png')
+            board[2][i] = QtGui.QPixmap(f'./image/board/digit_{numbers[i]}.bmp')
 
         for i in range(3):
             board[1][i].setPixmap(board[2][i].scaled(self._headerBoardLabelWidth, self._headerBoardLabelHeight))
 
     def _new_level(self):
 
-        self.window_level = WindowLevel(self, self._posX, self._posY)
+        WindowLevel(self, self._posX, self._posY)
         # self.setWindowFlags(QtCore.Qt.WindowDoesNotAcceptFocus)
+
+    def _settings(self):
+
+        WindowSettings(self, self._posX, self._posY)
+
+    def _about(self):
+
+        WindowAbout(self, self._posX, self._posY)
 
     def set_field_alignHCenter(self, alignHCenter):
 
@@ -651,6 +680,83 @@ class HeaderButton(QtWidgets.QPushButton):
         if (self.window.game.game):
             self.window.set_header_btn_image('default')
 
+
+class WindowAbout(QtWidgets.QDialog):
+
+    def __init__(self, window, posX, posY):
+        super(WindowAbout, self).__init__(window, QtCore.Qt.Window)
+
+        self.setWindowFlags(QtCore.Qt.Dialog)
+        self.setWindowModality(QtCore.Qt.WindowModal)
+        self.window = window
+        self._width = 420
+        self._height = 360
+
+        self.setWindowTitle('About the project')
+        self.setStyleSheet('background-color: grey;')
+        self.setFixedSize(self._width, self._height)
+        self.move(posX, posY)
+        actionExit = QtWidgets.QAction(self)
+        actionExit.setShortcut('Ctrl+Q')
+        actionExit.triggered.connect(lambda: self.deleteLater())
+        self.addAction(actionExit)
+
+        view = QtWebEngineWidgets.QWebEngineView(self)
+        view.setGeometry(0, 0, self._width, self._height)
+        html = Path('./about.html').read_text(encoding="utf8")
+        view.setHtml(html)
+
+        self.show()
+
+class WindowSettings(QtWidgets.QDialog):
+
+    def __init__(self, window, posX, posY):
+        super(WindowSettings, self).__init__(window, QtCore.Qt.Window)
+
+        self.setWindowFlags(QtCore.Qt.Dialog)
+        self.setWindowModality(QtCore.Qt.WindowModal)
+        self.window = window
+        self._width = 160
+        self._height = 160
+
+        self.setWindowTitle('Settings')
+        self.setStyleSheet('background-color: grey;')
+        self.setFixedSize(self._width, self._height)
+        self.move(posX, posY)
+        actionExit = QtWidgets.QAction(self)
+        actionExit.setShortcut('Ctrl+Q')
+        actionExit.triggered.connect(lambda: self.deleteLater())
+        self.addAction(actionExit)
+
+        self._boxCheat = self._create_box_radio('Mode cheat', self.window.game.get_modeCheat(), self.window.game.set_modeCheat)
+        self._boxMarking = self._create_box_radio('Endless marking', self.window.game.get_modeEndlessMarking(), self.window.game.set_modeEndlessMarking)
+
+        self._boxMarking[0].move(10, 10)
+        self._boxCheat[0].move(10, 80)
+
+        self.show()
+
+    def _create_box_radio(self, title, status, func):
+
+        radio1 = QtWidgets.QRadioButton('OFF')
+        radio2 = QtWidgets.QRadioButton('ON')
+
+        radio1.setCursor(QtCore.Qt.PointingHandCursor)
+        radio2.setCursor(QtCore.Qt.PointingHandCursor)
+
+        radio1.setChecked(not status)
+        radio2.setChecked(status)
+
+        radio2.toggled.connect(func)
+
+        box = QtWidgets.QGroupBox(title, self)
+        hbox = QtWidgets.QHBoxLayout()
+        hbox.addWidget(radio1)
+        hbox.addWidget(radio2)
+        box.setLayout(hbox)
+
+        return [box, hbox, radio1, radio2]
+
 class WindowLevel(QtWidgets.QDialog):
 
     def __init__(self, window, posX, posY):
@@ -664,7 +770,12 @@ class WindowLevel(QtWidgets.QDialog):
 
         self.setWindowTitle('New Level')
         self.setStyleSheet('background-color: grey;')
-        self.setGeometry(posX, posY, self._width, self._height)
+        self.setFixedSize(self._width, self._height)
+        self.move(posX, posY)
+        actionExit = QtWidgets.QAction(self)
+        actionExit.setShortcut('Ctrl+Q')
+        actionExit.triggered.connect(lambda: self.deleteLater())
+        self.addAction(actionExit)
 
         self.body = QtWidgets.QWidget(self)
         self.body.resize(self._width, self._height)
@@ -681,6 +792,7 @@ class WindowLevel(QtWidgets.QDialog):
         self.btn = QtWidgets.QPushButton(self.body)
         self.btn.setText('Play')
         self.btn.setGeometry(int(self.body.size().width() / 2) - 30, 100, 60, 40)
+        self.btn.setCursor(QtCore.Qt.PointingHandCursor)
         self.btn.clicked.connect(self._play)
 
         self.description = QtWidgets.QLabel(self.body)
@@ -735,6 +847,7 @@ class WindowLevel(QtWidgets.QDialog):
         rangeHInput.setOrientation(QtCore.Qt.Horizontal)
         rangeHInput.valueChanged.connect(func)
         rangeHInput.setGeometry(rangeHText.size().width() + 20, 0, 100, 30)
+        rangeHInput.setCursor(QtCore.Qt.PointingHandCursor)
 
         rangeH.adjustSize()
 
@@ -745,10 +858,9 @@ def application():
     global app
 
     app = QApplication(sys.argv)
-    # QtGui.QFontDatabase.addApplicationFont('./font/SAIBA-45.otf')
     window = Window()
     game = Game(window)
-    game.set_level([10, 10, 20])
+    game.set_level([10, 10, 6])
     game.restart()
     window.setGame(game)
 
