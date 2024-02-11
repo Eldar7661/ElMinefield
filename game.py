@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import QApplication, QMainWindow
 
 from random import randint
 from pathlib import Path
-import sys
+import sys, json
 
 
 class Cell(QtWidgets.QPushButton):
@@ -120,13 +120,12 @@ class Game:
     def __init__(self, window):
 
         self.window = window
-        self._modeCheat = False
-        self._modeEndlessMarking = True
 
         self._cellMinSize = 35
         self._cellMaxAmountX = 0
         self._cellMaxAmountY = 0
         self._cellSize = 35
+        self._read_settings()
 
         self._stopwatch = QtCore.QTimer()
         self._stopwatch.setInterval(1000)
@@ -134,11 +133,23 @@ class Game:
 
         self._cell_calc_max_amount()
 
+    def _read_settings(self):
+
+        file = open('./set.json', 'r')
+        sett = json.loads(file.read())
+        file.close()
+        self._modeCheat = sett['mode_cheat']
+        self._modeEndlessMarking = sett['mode_endless_marking']
+        self.level = [sett['x'], sett['y'], sett['b'],]
+        self.victoryAmountCellOpened = (self.level[0] * self.level[1]) - self.level[2]
+        self._calc_min_size_field()
+
     def set_level(self, level):
 
         self.level = level
         self.victoryAmountCellOpened = (self.level[0] * self.level[1]) - self.level[2]
         self._calc_min_size_field()
+        self._saveSettings()
 
     def restart(self):
 
@@ -323,6 +334,27 @@ class Game:
         else:
             return True
 
+    def _tick(self):
+
+        self._time += 1
+        self.window.set_header_stopwatch(self._time)
+        if (self._time == 999):
+            self._stopwatch.stop()
+
+    def _saveSettings(self):
+
+        sett = {
+            'x': self.level[0],
+            'y': self.level[1],
+            'b': self.level[2],
+            'mode_cheat': self._modeCheat,
+            'mode_endless_marking': self._modeEndlessMarking,
+        }
+
+        file = open('./set.json', 'w')
+        file.write(json.dumps(sett))
+        file.close()
+
     def _calc_min_size_field(self):
 
         min_width = self._cellMinSize * self.level[0]
@@ -351,12 +383,6 @@ class Game:
         aroundCell = self._cell_calc_around_cells(position)
         for cell in aroundCell:
             cell.opening()
-
-    def _tick(self):
-        self._time += 1
-        self.window.set_header_stopwatch(self._time)
-        if (self._time == 999):
-            self._stopwatch.stop()
 
     def start(self):
 
@@ -409,10 +435,12 @@ class Game:
     def set_modeCheat(self, status):
 
         self._modeCheat = status
+        self._saveSettings()
 
     def set_modeEndlessMarking(self, status):
 
         self._modeEndlessMarking = status
+        self._saveSettings()
 
     def get_cells_general_size(self):
         return self._cellsGeneralSize
@@ -860,7 +888,6 @@ def application():
     app = QApplication(sys.argv)
     window = Window()
     game = Game(window)
-    game.set_level([10, 10, 6])
     game.restart()
     window.setGame(game)
 
