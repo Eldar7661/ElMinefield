@@ -140,7 +140,7 @@ class Game:
         file.close()
         self._modeCheat = sett['mode_cheat']
         self._modeEndlessMarking = sett['mode_endless_marking']
-        self.level = [sett['x'], sett['y'], sett['b'],]
+        self.level = [sett['level_x'], sett['level_y'], sett['level_b'],]
         self.victoryAmountCellOpened = (self.level[0] * self.level[1]) - self.level[2]
         self._calc_min_size_field()
 
@@ -151,11 +151,35 @@ class Game:
         self._calc_min_size_field()
         self._saveSettings()
 
+    def get_level(self):
+
+        return self.level
+
+    def start(self):
+
+        self.started = True
+        self._stopwatch.start()
+
+    def end(self, scenario):
+
+        self.game = False
+        self._stopwatch.stop()
+
+        for row in self._cells:
+            for cell in row:
+                cell.set_cursor_default()
+
+        if scenario == 'defeat':
+            for bomb in self._bombs:
+                bomb.explode()
+            self.window.set_header_btn_image('defeat')
+        else:
+            self.window.set_header_btn_image('win')
+
     def restart(self):
 
         self.game = True
         self.started = False
-        self._cellsGeneralSize = 0
 
         self._stopwatch.stop()
         self._time = 0
@@ -172,16 +196,17 @@ class Game:
         self._cells = []
         self._bombs = []
 
-        if self._cell_create():
-            self._bomb_create()
-            self._cell_calc_size()
-            self._cell_set_geometry()
-        else:
-            print(f'Error: maximum amount cells\nx: {self._cellMaxAmountX}, y: {self._cellMaxAmountY}')
-
         self.window.set_header_stopwatch(0)
         self.window.set_header_count_marked(0)
         self.window.set_header_btn_image('default')
+
+        if self._cell_create():
+            self._bomb_create()
+            self.cell_change_size()
+            # self._cell_calc_size()
+            # self._cell_set_geometry()
+        else:
+            print(f'Error: maximum amount cells\nx: {self._cellMaxAmountX}, y: {self._cellMaxAmountY}')
 
     def _cell_create(self):
 
@@ -279,8 +304,8 @@ class Game:
 
         countX = 0
         countY = 0
-        self._cellsGeneralSize = self._cellSize * self.level[0]
-        alignHCenter = int((self.window.field.size().width() / 2) - (self._cellsGeneralSize / 2))
+        cellsGeneralWidth = self._cellSize * self.level[0]
+        alignHCenter = int((self.window.field.size().width() / 2) - (cellsGeneralWidth / 2))
 
         for row in self._cells:
             for cell in row:
@@ -323,6 +348,30 @@ class Game:
             for cell in aroundcell:
                 cell.count_bomb_around()
 
+    def cell_change_size(self):
+
+        self._cell_calc_size()
+        alignHCenter = self._cell_set_geometry()
+        self.window.set_field_alignHCenter(alignHCenter)
+        self._cell_calc_max_amount()
+
+    def opening_around_cells(self, cell):
+
+        position = self._cell_calc_position(cell)
+        aroundCell = self._cell_calc_around_cells(position)
+        for cell in aroundCell:
+            cell.opening()
+
+    def cell_opening(self, role):
+
+        if role == 'bomb':
+            self.end('defeat')
+        else:
+            self._cellAmountOpened += 1
+
+            if self._cellAmountOpened == self.victoryAmountCellOpened:
+                self.end('victory')
+
     def _chec_level(self):
 
         x = self.level[0] > self._cellMaxAmountX
@@ -343,13 +392,15 @@ class Game:
 
     def _saveSettings(self):
 
-        sett = {
-            'x': self.level[0],
-            'y': self.level[1],
-            'b': self.level[2],
-            'mode_cheat': self._modeCheat,
-            'mode_endless_marking': self._modeEndlessMarking,
-        }
+        file = open('./set.json', 'r')
+        sett = json.loads(file.read())
+        file.close()
+
+        sett['level_x'] = self.level[0],
+        sett['level_y'] = self.level[1],
+        sett['level_b'] = self.level[2],
+        sett['mode_cheat'] = self._modeCheat,
+        sett['mode_endless_marking'] = self._modeEndlessMarking,
 
         file = open('./set.json', 'w')
         file.write(json.dumps(sett))
@@ -370,51 +421,6 @@ class Game:
 
         self.window.set_header_count_marked(self._amountMarked)
 
-    def cell_change_size(self):
-
-        self._cell_calc_size()
-        alignHCenter = self._cell_set_geometry()
-        self.window.set_field_alignHCenter(alignHCenter)
-        self._cell_calc_max_amount()
-
-    def opening_around_cells(self, cell):
-
-        position = self._cell_calc_position(cell)
-        aroundCell = self._cell_calc_around_cells(position)
-        for cell in aroundCell:
-            cell.opening()
-
-    def start(self):
-
-        self.started = True
-        self._stopwatch.start()
-
-    def end(self, scenario):
-
-        self.game = False
-        self._stopwatch.stop()
-
-        for row in self._cells:
-            for cell in row:
-                cell.set_cursor_default()
-
-        if scenario == 'defeat':
-            for bomb in self._bombs:
-                bomb.explode()
-            self.window.set_header_btn_image('defeat')
-        else:
-            self.window.set_header_btn_image('win')
-
-    def cell_opening(self, role):
-
-        if role == 'bomb':
-            self.end('defeat')
-        else:
-            self._cellAmountOpened += 1
-
-            if self._cellAmountOpened == self.victoryAmountCellOpened:
-                self.end('victory')
-
     def is_amount_marked(self):
 
         if self._modeEndlessMarking:
@@ -423,14 +429,6 @@ class Game:
         if self._amountMarked >= self.level[2]:
             return True
         return False
-
-    def get_modeCheat(self):
-
-        return self._modeCheat
-
-    def get_modeEndlessMarking(self):
-
-        return self._modeEndlessMarking
 
     def set_modeCheat(self, status):
 
@@ -442,26 +440,61 @@ class Game:
         self._modeEndlessMarking = status
         self._saveSettings()
 
-    def get_cells_general_size(self):
-        return self._cellsGeneralSize
+    def get_modeCheat(self):
+
+        return self._modeCheat
+
+    def get_modeEndlessMarking(self):
+
+        return self._modeEndlessMarking
+
+    def get_cells_general_height(self):
+
+        return self._cellSize * self.level[1]
 
     def get_cells_max_amount(self):
+
         return [self._cellMaxAmountX, self._cellMaxAmountY]
 
 class Window(QMainWindow):
 
-    resized = QtCore.pyqtSignal()
+    def moveEvent(self, event):
+
+        self._posX = event.pos().x();
+        self._posY = event.pos().y();
+
+        file = open('./set.json', 'r')
+        sett = json.loads(file.read())
+        file.close()
+
+        sett['pos_x'] = self._posX
+        sett['pos_y'] = self._posY
+
+        file = open('./set.json', 'w')
+        file.write(json.dumps(sett))
+        file.close()
+
+        return super(Window, self).moveEvent(event)
 
     def resizeEvent(self, event):
 
-        self.resized.emit()
+        self._width = self.size().width();
+        self._height = self.size().height();
+
+        file = open('./set.json', 'r')
+        sett = json.loads(file.read())
+        file.close()
+
+        sett['width'] = self._width
+        sett['height'] = self._height
+
+        file = open('./set.json', 'w')
+        file.write(json.dumps(sett))
+        file.close()
+
+        self._adjustment_size()
+        self.game.cell_change_size()
         return super(Window, self).resizeEvent(event)
-
-    # def keyPressEvent(self, event):
-    #     print(event.key())
-    #     if event.key() == 66:
-    #         self.game.restart()
-
 
     def __init__(self):
         super(Window, self).__init__()
@@ -478,10 +511,13 @@ class Window(QMainWindow):
         self._headerButtonLabel = 'Label'
         self._headerButtonImg = 'Pixmap'
 
-        self._posX = 750
-        self._posY = 150
-        self._width = 450
-        self._height = 450
+        file = open('./set.json', 'r')
+        sett = json.loads(file.read())
+        file.close()
+        self._posX = sett['pos_x']
+        self._posY = sett['pos_y']
+        self._width = sett['width']
+        self._height = sett['height']
         self._menuHeight = int(self._menu.size().height())
 
 
@@ -498,20 +534,11 @@ class Window(QMainWindow):
 
         self.title = 'Minesweeper';
         self.setWindowIcon(QtGui.QIcon('./image/icon.ico'))
-        self.resized.connect(self._change_size)
         self.setWindowTitle(self.title)
         self.setGeometry(self._posX, self._posY, self._width, self._height)
 
         self._createBody()
         self._createHeader()
-
-    def _change_size(self):
-
-        self._width = self.size().width();
-        self._height = self.size().height();
-
-        self._adjustment_size()
-        self.game.cell_change_size()
 
     def _adjustment_size(self):
 
@@ -524,7 +551,8 @@ class Window(QMainWindow):
 
     def _adjustment_size_header(self, alignHCenter):
 
-        self._headerHeight = int(self.game.get_cells_general_size() * 0.15)
+        self._headerHeight = int(self.game.get_cells_general_height() * 0.15)
+        # self._headerHeight = int(self.field.size().height() * 0.15)
         headerWidth = (self.body.size().width() - (alignHCenter * 2))
         self.header.setGeometry(alignHCenter, 0, headerWidth, self._headerHeight)
 
@@ -576,7 +604,6 @@ class Window(QMainWindow):
         self._headerStopwatchBoard = self._create_board()
 
         self._headerButton = HeaderButton(self, self.header)
-        # self._headerButton.setStyleSheet('border: 2px inset #929292')
         self._headerButton.setCursor(QtCore.Qt.PointingHandCursor)
         self._headerButtonLabel = QtWidgets.QLabel(self._headerButton)
 
@@ -657,7 +684,6 @@ class Window(QMainWindow):
     def _new_level(self):
 
         WindowLevel(self, self._posX, self._posY)
-        # self.setWindowFlags(QtCore.Qt.WindowDoesNotAcceptFocus)
 
     def _settings(self):
 
@@ -811,11 +837,12 @@ class WindowLevel(QtWidgets.QDialog):
         self._x = 5
         self._y = 5
         self._b = 10
-        self.maxs = self.window.game.get_cells_max_amount()
+        self._level = self.window.game.get_level()
+        self._cells_max_amount = self.window.game.get_cells_max_amount()
 
-        self.rangeH = self._create_range(5, 5, 'Amount Cells in H: 5', 2, self.maxs[0], self.d)
-        self.rangeV = self._create_range(5, 30, 'Amount Cells in V: 5', 2, self.maxs[1], self.s)
-        self.rangeB = self._create_range(5, 60, 'Amount Bomb: 10', 1, (self._x * self._y) - 1, self.f)
+        self.rangeH = self._create_range('h', self.d)
+        self.rangeV = self._create_range('v', self.s)
+        self.rangeB = self._create_range('b', self.f)
 
         self.btn = QtWidgets.QPushButton(self.body)
         self.btn.setText('Play')
@@ -829,6 +856,38 @@ class WindowLevel(QtWidgets.QDialog):
         self.description.setText(f'''Cells max with width({self.window.size().width()}) and height({self.window.size().height()}).\nInput range can move with helping (←, →, ↑, ↓)''')
 
         self.show()
+
+    def _create_range(self, isRange, func):
+
+        rangeH = QtWidgets.QWidget(self.body)
+        rangeHText = QtWidgets.QLabel(rangeH)
+        rangeHInput = QtWidgets.QSlider(rangeH)
+
+        if isRange == 'h':
+            rangeH.move(5, 5)
+            rangeHText.setText(f'Amount Cells in H: {self._level[0]}')
+            rangeHInput.setRange(2, self._cells_max_amount[0])
+        elif isRange == 'v':
+            rangeH.move(5, 30)
+            rangeHText.setText(f'Amount Cells in V: {self._level[1]}')
+            rangeHInput.setRange(2, self._cells_max_amount[1])
+        elif isRange == 'b':
+            rangeH.move(5, 60)
+            rangeHText.setText(f'Amount Bomb      : {self._level[2]}')
+            rangeHInput.setRange(1, (self._x * self._y) - 1)
+
+        rangeHText.adjustSize()
+
+        rangeHInput.setSingleStep(1)
+        rangeHInput.setSliderPosition(5)
+        rangeHInput.setOrientation(QtCore.Qt.Horizontal)
+        rangeHInput.valueChanged.connect(func)
+        rangeHInput.setGeometry(rangeHText.size().width() + 20, 0, 100, 30)
+        rangeHInput.setCursor(QtCore.Qt.PointingHandCursor)
+
+        rangeH.adjustSize()
+
+        return [rangeH, rangeHText, rangeHInput]
 
     def d(self):
         self._x = self.rangeH[2].value()
@@ -859,28 +918,6 @@ class WindowLevel(QtWidgets.QDialog):
         self.window.game.restart()
         self.deleteLater()
 
-    def _create_range(self, posX, posY, text, valueMin, valueMax, func):
-
-        rangeH = QtWidgets.QWidget(self.body)
-        rangeH.move(posX, posY)
-
-        rangeHText = QtWidgets.QLabel(rangeH)
-        rangeHText.setText(text)
-        rangeHText.adjustSize()
-
-        rangeHInput = QtWidgets.QSlider(rangeH)
-        rangeHInput.setRange(valueMin, valueMax)
-        rangeHInput.setSingleStep(1)
-        rangeHInput.setSliderPosition(5)
-        rangeHInput.setOrientation(QtCore.Qt.Horizontal)
-        rangeHInput.valueChanged.connect(func)
-        rangeHInput.setGeometry(rangeHText.size().width() + 20, 0, 100, 30)
-        rangeHInput.setCursor(QtCore.Qt.PointingHandCursor)
-
-        rangeH.adjustSize()
-
-        return [rangeH, rangeHText, rangeHInput]
-
 def application():
 
     global app
@@ -888,8 +925,8 @@ def application():
     app = QApplication(sys.argv)
     window = Window()
     game = Game(window)
-    game.restart()
     window.setGame(game)
+    game.restart()
 
     window.show()
     sys.exit(app.exec_())
