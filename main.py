@@ -1,5 +1,4 @@
 from PyQt5 import QtWidgets, QtGui, QtCore, QtWebEngineWidgets
-from PyQt5.QtWidgets import QApplication, QMainWindow
 
 from random import randint
 from pathlib import Path
@@ -23,9 +22,6 @@ class Cell(QtWidgets.QPushButton):
         super(Cell, self).__init__(field)
 
         self._game = game
-
-        # self._pos_x = pos_x
-        # self._pos_y = pos_y
         self._size = size
 
         self._amountBombAround = 0
@@ -68,6 +64,7 @@ class Cell(QtWidgets.QPushButton):
         self.imgLabel.setPixmap(self.img.scaled(self._size, self._size))
 
     def set_role(self, role):
+
         if self._game.get_modeCheat():
             self._set_image(12)
         if self._role == 'bomb':
@@ -112,8 +109,6 @@ class Cell(QtWidgets.QPushButton):
 
             self._set_image(12)
 
-    def get_opened(self):
-        return self._opened
 
 class Game:
 
@@ -456,7 +451,8 @@ class Game:
 
         return [self._cellMaxAmountX, self._cellMaxAmountY]
 
-class Window(QMainWindow):
+
+class Window(QtWidgets.QMainWindow):
 
     def moveEvent(self, event):
 
@@ -555,7 +551,14 @@ class Window(QMainWindow):
         self._headerHeight = int(self.game.get_cells_general_height() * 0.15)
         # self._headerHeight = int(self.field.size().height() * 0.15)
         headerWidth = (self.body.size().width() - (alignHCenter * 2))
-        self.header.setGeometry(alignHCenter, 0, headerWidth, self._headerHeight)
+
+        k = 4.5 # Коэфициент сооотношение сторон header
+        if headerWidth / self._headerHeight < k:
+            headerWidth = int(self._headerHeight * k)
+            alignHCenter = int((self.body.size().width() / 2) - (headerWidth / 2))
+            self.header.setGeometry(alignHCenter, 0, headerWidth, self._headerHeight)
+        else:
+            self.header.setGeometry(alignHCenter, 0, headerWidth, self._headerHeight)
 
         self._headerBoardHeight = int(self._headerHeight * 0.8)
         self._headerBoardAlignV = int(self._headerHeight * 0.1)
@@ -608,10 +611,7 @@ class Window(QMainWindow):
         self._headerButton.setCursor(cursorHover)
         self._headerButtonLabel = QtWidgets.QLabel(self._headerButton)
 
-
     def _create_menu_action(self):
-
-        global app
 
         gameRestart = QtWidgets.QAction(QtGui.QIcon('./image/menu/restart.bmp'), '&Restart', self)
         gameNewLevel = QtWidgets.QAction(QtGui.QIcon('./image/menu/new_level.bmp'), '&New Level', self)
@@ -641,6 +641,7 @@ class Window(QMainWindow):
         self._game.addAction(gameExit)
 
     def _create_board(self):
+
         board = QtWidgets.QWidget(self.header)
         board.setStyleSheet('background:black;border-radius:3px;')
         boardFull = [
@@ -665,6 +666,7 @@ class Window(QMainWindow):
         self._headerButtonLabel.setPixmap(self._headerButtonImg.scaled(self._headerBoardHeight, self._headerBoardHeight))
 
     def _board_convert_number(self, number):
+
         x = number % 10
         y = number % 100
         numbers = [
@@ -708,8 +710,8 @@ class Window(QMainWindow):
 
     def set_header_stopwatch(self, number):
 
-        # self.setWindowTitle(f'{self.title} : {number}s')
         self._set_header_board(self._headerStopwatchBoard, number)
+        # self.setWindowTitle(f'{self.title} : {number}s')
 
     def set_header_count_marked(self, number):
 
@@ -726,6 +728,7 @@ class HeaderButton(QtWidgets.QPushButton):
 
     def __init__(self, window, parrent):
         super(HeaderButton, self).__init__(parrent)
+
         self.window = window
 
     def enterEvent(self, QEvent):
@@ -755,6 +758,7 @@ class WindowAbout(QtWidgets.QDialog):
         self.setStyleSheet('background-color: grey;')
         self.setFixedSize(self._width, self._height)
         self.move(posX + 20, posY + 20)
+
         actionExit = QtWidgets.QAction(self)
         actionExit.setShortcut('Ctrl+Q')
         actionExit.triggered.connect(lambda: self.deleteLater())
@@ -767,6 +771,7 @@ class WindowAbout(QtWidgets.QDialog):
         view.setHtml(html, baseUrl=QtCore.QUrl.fromLocalFile(css))
 
         self.show()
+
 
 class WindowSettings(QtWidgets.QDialog):
 
@@ -784,6 +789,7 @@ class WindowSettings(QtWidgets.QDialog):
         self.setStyleSheet('background-color: grey;')
         self.setFixedSize(self._width, self._height)
         self.move(posX + 20, posY + 20)
+
         actionExit = QtWidgets.QAction(self)
         actionExit.setShortcut('Ctrl+Q')
         actionExit.triggered.connect(lambda: self.deleteLater())
@@ -823,6 +829,7 @@ class WindowSettings(QtWidgets.QDialog):
 
         return [box, hbox, radio1, radio2]
 
+
 class WindowLevel(QtWidgets.QDialog):
 
     def __init__(self, window, posX, posY):
@@ -839,6 +846,7 @@ class WindowLevel(QtWidgets.QDialog):
         self.setStyleSheet('background-color: grey;')
         self.setFixedSize(self._width, self._height)
         self.move(posX + 20, posY + 20)
+
         actionExit = QtWidgets.QAction(self)
         actionExit.setShortcut('Ctrl+Q')
         actionExit.triggered.connect(lambda: self.deleteLater())
@@ -853,9 +861,9 @@ class WindowLevel(QtWidgets.QDialog):
         self._y = self._level[1]
         self._b = self._level[2]
 
-        self.rangeH = self._create_range('h', self.d)
-        self.rangeV = self._create_range('v', self.s)
-        self.rangeB = self._create_range('b', self.f)
+        self.rangeH = self._create_range('h')
+        self.rangeV = self._create_range('v')
+        self.rangeB = self._create_range('b')
 
         self.btn = QtWidgets.QPushButton(self.body)
         self.btn.setText('Play')
@@ -870,7 +878,7 @@ class WindowLevel(QtWidgets.QDialog):
 
         self.show()
 
-    def _create_range(self, isRange, func):
+    def _create_range(self, isRange):
 
         rangeH = QtWidgets.QWidget(self.body)
         rangeHText = QtWidgets.QLabel(rangeH)
@@ -881,22 +889,24 @@ class WindowLevel(QtWidgets.QDialog):
             rangeHText.setText(f'Amount Cells in H: {self._level[0]}')
             rangeHInput.setRange(2, self._cells_max_amount[0])
             rangeHInput.setSliderPosition(self._x)
+            rangeHInput.valueChanged.connect(self.changeAmountCellH)
         elif isRange == 'v':
             rangeH.move(5, 30)
             rangeHText.setText(f'Amount Cells in V: {self._level[1]}')
             rangeHInput.setRange(2, self._cells_max_amount[1])
             rangeHInput.setSliderPosition(self._y)
+            rangeHInput.valueChanged.connect(self.changeAmountCellV)
         elif isRange == 'b':
             rangeH.move(5, 60)
             rangeHText.setText(f'Amount Bomb      : {self._level[2]}')
             rangeHInput.setRange(1, (self._x * self._y) - 1)
             rangeHInput.setSliderPosition(self._b)
+            rangeHInput.valueChanged.connect(self.changeAmountCellBomb)
 
         rangeHText.adjustSize()
 
         rangeHInput.setSingleStep(1)
         rangeHInput.setOrientation(QtCore.Qt.Horizontal)
-        rangeHInput.valueChanged.connect(func)
         rangeHInput.setGeometry(rangeHText.size().width() + 20, 0, 100, 30)
         rangeHInput.setCursor(cursorHover)
 
@@ -904,21 +914,24 @@ class WindowLevel(QtWidgets.QDialog):
 
         return [rangeH, rangeHText, rangeHInput]
 
-    def d(self):
+    def changeAmountCellH(self):
+
         self._x = self.rangeH[2].value()
         self.rangeH[1].setText(f'Amount Cells in H: {self._x}')
         self.rangeH[1].adjustSize()
 
         self._set_bomb_max()
 
-    def s(self):
+    def changeAmountCellV(self):
+
         self._y = self.rangeV[2].value()
         self.rangeV[1].setText(f'Amount Cells in V: {self._y}')
         self.rangeV[1].adjustSize()
 
         self._set_bomb_max()
 
-    def f(self):
+    def changeAmountCellBomb(self):
+
         self._b = self.rangeB[2].value()
         self.rangeB[1].setText(f'Amount Bomb: {self._b}')
         self.rangeB[1].adjustSize()
@@ -933,15 +946,19 @@ class WindowLevel(QtWidgets.QDialog):
         self.window.game.restart()
         self.deleteLater()
 
-def application():
 
-    global app
-    global cursorShovel
-    global cursorMetalDetector
-    global cursorDefault
-    global cursorHover
 
-    app = QApplication(sys.argv)
+
+def make_cursor(url, size=60):
+
+    pixmap = QtGui.QPixmap(url)
+    pixmap = pixmap.scaled(size, size)
+    return QtGui.QCursor(pixmap)
+
+
+if (__name__ == '__main__'):
+
+    app = QtWidgets.QApplication(sys.argv)
 
     cursorShovel = make_cursor('./image/cursor/shovel.bmp')
     cursorMetalDetector = make_cursor('./image/cursor/metalDetector.bmp')
@@ -955,12 +972,3 @@ def application():
 
     window.show()
     sys.exit(app.exec_())
-
-def make_cursor(url, size=60):
-
-    pixmap = QtGui.QPixmap(url)
-    pixmap = pixmap.scaled(size, size)
-    return QtGui.QCursor(pixmap)
-
-if (__name__ == '__main__'):
-    application()
