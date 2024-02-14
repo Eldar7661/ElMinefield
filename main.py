@@ -2,26 +2,25 @@ from PyQt5 import QtWidgets, QtGui, QtCore, QtWebEngineWidgets
 
 from random import randint
 from pathlib import Path
-import sys, json
+import os, sys, json
 
 
 class Cell(QtWidgets.QPushButton):
 
     def mousePressEvent(self, QMouseEvent):
 
-        if not self._game.started:
-            self._game.start()
+        if not game.started:
+            game.start()
 
-        if not self._opened and self._game.game:
+        if not self._opened and game.game:
             if QMouseEvent.button() == QtCore.Qt.LeftButton:
                 self.opening()
             elif QMouseEvent.button() == QtCore.Qt.RightButton:
                 self._set_mark()
 
-    def __init__(self, game, field, size):
+    def __init__(self, field, size):
         super(Cell, self).__init__(field)
 
-        self._game = game
         self._size = size
 
         self._amountBombAround = 0
@@ -29,7 +28,7 @@ class Cell(QtWidgets.QPushButton):
         self._markedFlag = False
         self._markedSupposed = False
         self._role = 'empty'
-        self.img = QtGui.QPixmap('./image/cell/cell_11.bmp')
+        self.img = QtGui.QPixmap(getUrl('./image/cell/cell_11.bmp'))
         self.imgLabel = QtWidgets.QLabel(self)
 
         self.setCursor(cursorShovel)
@@ -41,21 +40,21 @@ class Cell(QtWidgets.QPushButton):
         if self._markedFlag:
             self._markedFlag = False
             self._markedSupposed = True
-            self._game.set_amount_marked(False)
+            game.set_amount_marked(False)
             self._set_image(10)
 
         elif self._markedSupposed:
             self._markedSupposed = False
             self._set_image(11)
 
-        elif not self._game.is_amount_marked():
+        elif not game.is_amount_marked():
             self._markedFlag = True
-            self._game.set_amount_marked(True)
+            game.set_amount_marked(True)
             self._set_image(9)
 
     def _set_image(self, id):
 
-        self.img = QtGui.QPixmap(f'./image/cell/cell_{id}.bmp')
+        self.img = QtGui.QPixmap(getUrl(f'./image/cell/cell_{id}.bmp'))
         self._image_adjustment()
 
     def _image_adjustment(self):
@@ -65,7 +64,7 @@ class Cell(QtWidgets.QPushButton):
 
     def set_role(self, role):
 
-        if self._game.get_modeCheat():
+        if game.get_modeCheat():
             self._set_image(12)
         if self._role == 'bomb':
             return False
@@ -91,15 +90,15 @@ class Cell(QtWidgets.QPushButton):
 
         self._opened = True
         self.setCursor(cursorMetalDetector)
-        self._game.cell_opening(self._role)
+        game.cell_opening(self._role)
 
         if (self._markedFlag):
-            self._game.set_amount_marked(False)
+            game.set_amount_marked(False)
 
         if self._role == 'empty':
             self._set_image(self._amountBombAround)
             if self._amountBombAround == 0:
-                self._game.opening_around_cells(self)
+                game.opening_around_cells(self)
 
     def set_cursor_default(self):
 
@@ -112,43 +111,25 @@ class Cell(QtWidgets.QPushButton):
 
 class Game:
 
-    def __init__(self, window):
-
-        self.window = window
-
+    def __init__(self):
         self._cellMinSize = 35
+        self._modeCheat = settings_game.params['mode_cheat']
+        self._modeEndlessMarking = settings_game.params['mode_endless_marking']
         self._cellMaxAmountX = 0
         self._cellMaxAmountY = 0
         self._cellSize = 35
-        self._read_settings()
+        self.game = False
+        self.set_level(settings_game.params['level'])
 
         self._stopwatch = QtCore.QTimer()
         self._stopwatch.setInterval(1000)
         self._stopwatch.timeout.connect(self._tick)
 
-        self._cell_calc_max_amount()
-
-    def _read_settings(self):
-
-        file = open('./set.json', 'r')
-        sett = json.loads(file.read())
-        file.close()
-        self._modeCheat = sett['mode_cheat']
-        self._modeEndlessMarking = sett['mode_endless_marking']
-        self.level = [sett['level_x'], sett['level_y'], sett['level_b'],]
-        self.victoryAmountCellOpened = (self.level[0] * self.level[1]) - self.level[2]
-        self._calc_min_size_field()
-
     def set_level(self, level):
 
         self.level = level
+        settings_game.params['level'] = level
         self.victoryAmountCellOpened = (self.level[0] * self.level[1]) - self.level[2]
-        self._calc_min_size_field()
-        self._saveSettings()
-
-    def get_level(self):
-
-        return self.level
 
     def start(self):
 
@@ -167,13 +148,12 @@ class Game:
         if scenario == 'defeat':
             for bomb in self._bombs:
                 bomb.explode()
-            self.window.set_header_btn_image('defeat')
+            window.headerButton.set_image('defeat')
         else:
-            self.window.set_header_btn_image('win')
+            window.headerButton.set_image('win')
 
     def restart(self):
 
-        self.game = True
         self.started = False
 
         self._stopwatch.stop()
@@ -191,15 +171,15 @@ class Game:
         self._cells = []
         self._bombs = []
 
-        self.window.set_header_stopwatch(0)
-        self.window.set_header_count_marked(0)
-        self.window.set_header_btn_image('default')
+        window.set_header_stopwatch(0)
+        window.set_header_count_marked(0)
+        window.headerButton.set_image('default')
 
         if self._cell_create():
+            self.game = True
             self._bomb_create()
             self.cell_change_size()
-            # self._cell_calc_size()
-            # self._cell_set_geometry()
+            self._calc_min_size_field()
         else:
             print(f'Error: maximum amount cells\nx: {self._cellMaxAmountX}, y: {self._cellMaxAmountY}')
 
@@ -212,7 +192,7 @@ class Game:
             self._cells.append([])
             for j in range(self.level[0]):
 
-                cell = Cell(self, self.window.field, self._cellSize)
+                cell = Cell(window.field, self._cellSize)
                 self._cells[i].append(cell)
 
         return True
@@ -280,10 +260,10 @@ class Game:
 
     def _cell_calc_size(self):
 
-        cellWidth = self.window.field.size().width() / self.level[0]
-        cellHeight = self.window.field.size().height() / self.level[1]
-        cellFitsToBodyX = (self.level[0] * self._cellSize) < (self.window.field.size().width() + 1)
-        cellFitsToBodyY = (self.level[1] * self._cellSize) < (self.window.field.size().height() + 1)
+        cellWidth = window.field.size().width() / self.level[0]
+        cellHeight = window.field.size().height() / self.level[1]
+        cellFitsToBodyX = (self.level[0] * self._cellSize) < (window.field.size().width() + 1)
+        cellFitsToBodyY = (self.level[1] * self._cellSize) < (window.field.size().height() + 1)
 
         if cellFitsToBodyX and cellFitsToBodyY:
             if (cellWidth <= cellHeight):
@@ -300,7 +280,7 @@ class Game:
         countX = 0
         countY = 0
         cellsGeneralWidth = self._cellSize * self.level[0]
-        alignHCenter = int((self.window.field.size().width() / 2) - (cellsGeneralWidth / 2))
+        alignHCenter = int((window.field.size().width() / 2) - (cellsGeneralWidth / 2))
 
         for row in self._cells:
             for cell in row:
@@ -317,8 +297,8 @@ class Game:
 
     def _cell_calc_max_amount(self):
 
-        self._cellMaxAmountX = int(self.window.field.size().width() / self._cellMinSize)
-        self._cellMaxAmountY = int(self.window.field.size().height() / self._cellMinSize)
+        self._cellMaxAmountX = int(window.field.size().width() / self._cellMinSize)
+        self._cellMaxAmountY = int(window.field.size().height() / self._cellMinSize)
         # print(f'maximum amount cells\nx: {self._cellMaxAmountX}, y: {self._cellMaxAmountY}')
 
     def _bomb_create(self):
@@ -345,10 +325,11 @@ class Game:
 
     def cell_change_size(self):
 
-        self._cell_calc_size()
-        alignHCenter = self._cell_set_geometry()
-        self.window.set_field_alignHCenter(alignHCenter)
         self._cell_calc_max_amount()
+        if self.game:
+            self._cell_calc_size()
+            alignHCenter = self._cell_set_geometry()
+            window.set_field_alignHCenter(alignHCenter)
 
     def opening_around_cells(self, cell):
 
@@ -381,40 +362,15 @@ class Game:
     def _tick(self):
 
         self._time += 1
-        self.window.set_header_stopwatch(self._time)
+        window.set_header_stopwatch(self._time)
         if (self._time == 999):
             self._stopwatch.stop()
-
-    def _saveSettings(self):
-
-        file = open('./set.json', 'r')
-        sett = json.loads(file.read())
-        file.close()
-
-        sett['level_x'] = self.level[0]
-        sett['level_y'] = self.level[1]
-        sett['level_b'] = self.level[2]
-        sett['mode_cheat'] = self._modeCheat
-        sett['mode_endless_marking'] = self._modeEndlessMarking
-
-        file = open('./set.json', 'w')
-        file.write(json.dumps(sett))
-        file.close()
 
     def _calc_min_size_field(self):
 
         min_width = self._cellMinSize * self.level[0]
         min_height = self._cellMinSize * self.level[1]
-        self.window.set_field_min_size(min_width, min_height)
-
-    def set_amount_marked(self, adding):
-
-        if adding:
-            self._amountMarked += 1
-        else:
-            self._amountMarked -= 1
-
-        self.window.set_header_count_marked(self._amountMarked)
+        window.set_field_min_size(min_width, min_height)
 
     def is_amount_marked(self):
 
@@ -425,15 +381,24 @@ class Game:
             return True
         return False
 
+    def set_amount_marked(self, adding):
+
+        if adding:
+            self._amountMarked += 1
+        else:
+            self._amountMarked -= 1
+
+        window.set_header_count_marked(self._amountMarked)
+
     def set_modeCheat(self, status):
 
         self._modeCheat = status
-        self._saveSettings()
+        settings_game.params['mode_cheat'] = status
 
     def set_modeEndlessMarking(self, status):
 
         self._modeEndlessMarking = status
-        self._saveSettings()
+        settings_game.params['mode_endless_marking'] = status
 
     def get_modeCheat(self):
 
@@ -456,19 +421,8 @@ class Window(QtWidgets.QMainWindow):
 
     def moveEvent(self, event):
 
-        self._posX = event.pos().x();
-        self._posY = event.pos().y();
-
-        file = open('./set.json', 'r')
-        sett = json.loads(file.read())
-        file.close()
-
-        sett['pos_x'] = self._posX
-        sett['pos_y'] = self._posY
-
-        file = open('./set.json', 'w')
-        file.write(json.dumps(sett))
-        file.close()
+        settings_game.params['pos_x'] = event.pos().x();
+        settings_game.params['pos_y'] = event.pos().y();
 
         return super(Window, self).moveEvent(event)
 
@@ -477,44 +431,40 @@ class Window(QtWidgets.QMainWindow):
         self._width = self.size().width();
         self._height = self.size().height();
 
-        file = open('./set.json', 'r')
-        sett = json.loads(file.read())
-        file.close()
-
-        sett['width'] = self._width
-        sett['height'] = self._height
-
-        file = open('./set.json', 'w')
-        file.write(json.dumps(sett))
-        file.close()
+        settings_game.params['width'] = self._width
+        settings_game.params['height'] = self._height
 
         self._adjustment_size()
-        self.game.cell_change_size()
         return super(Window, self).resizeEvent(event)
+
+    def closeEvent(self, event):
+
+        if self._window_exit():
+            event.accept()
+            return super(Window, self).closeEvent(event)
+        else:
+            event.ignore()
 
     def __init__(self):
         super(Window, self).__init__()
 
-        self.game = 'obj'
         self._menu = self.menuBar()
-        self._game = self._menu.addMenu('Game')
-        self.body = 'Widget'
-        self.header = 'Widget'
-        self.field = 'Widget'
-        self._headerCountMarkedBoard = 'array'
-        self._headerStopwatchBoard = 'array'
-        self._headerButton = 'Button'
-        self._headerButtonLabel = 'Label'
-        self._headerButtonImg = 'Pixmap'
+        self._menuGame = self._menu.addMenu('Game')
+        self.body = QtWidgets.QWidget(self)
+        self.header = QtWidgets.QWidget(self.body)
+        self.field = QtWidgets.QWidget(self.body)
+        self.headerButton = HeaderButton(self.header)
+        self._headerCountMarkedBoard = self._create_board()
+        self._headerStopwatchBoard = self._create_board()
 
-        file = open('./set.json', 'r')
-        sett = json.loads(file.read())
-        file.close()
-        self._posX = sett['pos_x']
-        self._posY = sett['pos_y']
-        self._width = sett['width']
-        self._height = sett['height']
+
+        posX = settings_game.params['pos_x']
+        posY = settings_game.params['pos_y']
+        self._width = settings_game.params['width']
+        self._height = settings_game.params['height']
         self._menuHeight = int(self._menu.size().height())
+
+        self.header.setStyleSheet('background-color: grey;')
 
 
         self._headerHeight = 0
@@ -529,13 +479,12 @@ class Window(QtWidgets.QMainWindow):
 
 
         self.title = 'Minesweeper';
-        self.setWindowIcon(QtGui.QIcon('./image/icon.ico'))
+        self.setWindowIcon(QtGui.QIcon(getUrl('./image/icon.ico')))
         self.setWindowTitle(self.title)
-        self.setGeometry(self._posX, self._posY, self._width, self._height)
+        self.setGeometry(posX, posY, self._width, self._height)
         self.setCursor(cursorDefault)
 
-        self._createBody()
-        self._createHeader()
+        self._create_menu_action()
 
     def _adjustment_size(self):
 
@@ -546,9 +495,11 @@ class Window(QtWidgets.QMainWindow):
         self.body.setGeometry(0, self._menuHeight, bodyWidth, bodyHeight)
         self.field.setGeometry(0, bodyHeight - fieldHeight, bodyWidth, fieldHeight)
 
+        game.cell_change_size()
+
     def _adjustment_size_header(self, alignHCenter):
 
-        self._headerHeight = int(self.game.get_cells_general_height() * 0.15)
+        self._headerHeight = int(game.get_cells_general_height() * 0.15)
         # self._headerHeight = int(self.field.size().height() * 0.15)
         headerWidth = (self.body.size().width() - (alignHCenter * 2))
 
@@ -577,9 +528,7 @@ class Window(QtWidgets.QMainWindow):
 
         self._adjustment_size_header_board(self._headerCountMarkedBoard, boardCountAlignV)
         self._adjustment_size_header_board(self._headerStopwatchBoard, boardStopwatchAlignV)
-        self._headerButton.setGeometry(headerBtnX, self._headerBoardAlignV, self._headerBoardHeight, self._headerBoardHeight)
-        self._headerButtonLabel.setFixedSize(self._headerBoardHeight, self._headerBoardHeight)
-        self._headerButtonLabel.setPixmap(self._headerButtonImg.scaled(self._headerBoardHeight, self._headerBoardHeight))
+        self.headerButton.setGeometry(headerBtnX, self._headerBoardAlignV, self._headerBoardHeight)
 
     def _adjustment_size_header_board(self, board, alignVCenter):
 
@@ -592,53 +541,35 @@ class Window(QtWidgets.QMainWindow):
         for i in range(3):
             board[1][i].setPixmap(board[2][i].scaled(self._headerBoardLabelWidth, self._headerBoardLabelHeight))
 
-    def _createBody(self):
-
-        self.body = QtWidgets.QWidget(self)
-        self.field = QtWidgets.QWidget(self.body)
-
-        self._adjustment_size()
-
-    def _createHeader(self):
-
-        self.header = QtWidgets.QWidget(self.body)
-        self.header.setStyleSheet('background-color: grey;')
-
-        self._headerCountMarkedBoard = self._create_board()
-        self._headerStopwatchBoard = self._create_board()
-
-        self._headerButton = HeaderButton(self, self.header)
-        self._headerButton.setCursor(cursorHover)
-        self._headerButtonLabel = QtWidgets.QLabel(self._headerButton)
-
     def _create_menu_action(self):
 
-        gameRestart = QtWidgets.QAction(QtGui.QIcon('./image/menu/restart.bmp'), '&Restart', self)
-        gameNewLevel = QtWidgets.QAction(QtGui.QIcon('./image/menu/new_level.bmp'), '&New Level', self)
-        gameExit = QtWidgets.QAction(QtGui.QIcon('./image/menu/exit.bmp'), '&Exit', self)
-        settings = QtWidgets.QAction('&Settings', self)
-        about = QtWidgets.QAction('&About the project', self)
+        manuRestart = QtWidgets.QAction(QtGui.QIcon(getUrl('./image/menu/restart.bmp')), '&Restart', self)
+        manuNewLevel = QtWidgets.QAction(QtGui.QIcon(getUrl('./image/menu/new_level.bmp')), '&New Level', self)
+        manuExit = QtWidgets.QAction(QtGui.QIcon(getUrl('./image/menu/exit.bmp')), '&Exit', self)
+        manuSettings = QtWidgets.QAction('&Settings', self)
+        manuAbout = QtWidgets.QAction('&About the project', self)
 
-        gameRestart.setShortcut('Ctrl+R')
-        gameNewLevel.setShortcut('Ctrl+N')
-        gameExit.setShortcut('Ctrl+Q')
-        settings.setShortcut('Ctrl+S')
-        about.setShortcut('Ctrl+H')
+        manuRestart.setShortcut('Ctrl+R')
+        manuNewLevel.setShortcut('Ctrl+N')
+        manuExit.setShortcut('Ctrl+Q')
+        manuSettings.setShortcut('Ctrl+S')
+        manuAbout.setShortcut('Ctrl+H')
 
-        gameRestart.triggered.connect(self.game.restart)
-        gameNewLevel.triggered.connect(self._new_level)
-        gameExit.triggered.connect(lambda: sys.exit(app.exec_()))
-        settings.triggered.connect(self._settings)
-        about.triggered.connect(self._about)
+        self.headerButton.clicked.connect(game.restart)
+        manuRestart.triggered.connect(game.restart)
+        manuNewLevel.triggered.connect(lambda: WindowLevel())
+        manuExit.triggered.connect(self._menu_exit)
+        manuSettings.triggered.connect(lambda: WindowSettings())
+        manuAbout.triggered.connect(lambda: WindowAbout())
 
         self._menu.setCursor(cursorHover)
-        self._game.setCursor(cursorHover)
+        self._menuGame.setCursor(cursorHover)
 
-        self._menu.addAction(settings)
-        self._menu.addAction(about)
-        self._game.addAction(gameRestart)
-        self._game.addAction(gameNewLevel)
-        self._game.addAction(gameExit)
+        self._menu.addAction(manuSettings)
+        self._menu.addAction(manuAbout)
+        self._menuGame.addAction(manuRestart)
+        self._menuGame.addAction(manuNewLevel)
+        self._menuGame.addAction(manuExit)
 
     def _create_board(self):
 
@@ -652,18 +583,13 @@ class Window(QtWidgets.QMainWindow):
                 QtWidgets.QLabel(board)
             ],
             [
-                QtGui.QPixmap('./image/board/digit_0.bmp'),
-                QtGui.QPixmap('./image/board/digit_0.bmp'),
-                QtGui.QPixmap('./image/board/digit_0.bmp'),
+                QtGui.QPixmap(getUrl('./image/board/digit_0.bmp')),
+                QtGui.QPixmap(getUrl('./image/board/digit_0.bmp')),
+                QtGui.QPixmap(getUrl('./image/board/digit_0.bmp')),
             ]
         ]
 
         return boardFull
-
-    def set_header_btn_image(self, src):
-
-        self._headerButtonImg = QtGui.QPixmap(f'./image/smiley/{src}.bmp')
-        self._headerButtonLabel.setPixmap(self._headerButtonImg.scaled(self._headerBoardHeight, self._headerBoardHeight))
 
     def _board_convert_number(self, number):
 
@@ -682,22 +608,29 @@ class Window(QtWidgets.QMainWindow):
         numbers = self._board_convert_number(number)
 
         for i in range(3):
-            board[2][i] = QtGui.QPixmap(f'./image/board/digit_{numbers[i]}.bmp')
+            board[2][i] = QtGui.QPixmap(getUrl(f'./image/board/digit_{numbers[i]}.bmp'))
 
         for i in range(3):
             board[1][i].setPixmap(board[2][i].scaled(self._headerBoardLabelWidth, self._headerBoardLabelHeight))
 
-    def _new_level(self):
+    def _menu_exit(self):
 
-        WindowLevel(self, self._posX, self._posY)
+        if self._window_exit():
+            sys.exit(app.exec_())
 
-    def _settings(self):
+    def _window_exit(self):
 
-        WindowSettings(self, self._posX, self._posY)
+        title = 'exit'
+        text = 'gondon'
+        yes = QtWidgets.QMessageBox.Yes
+        no = QtWidgets.QMessageBox.No
+        result = QtWidgets.QMessageBox.question(self, title, text, yes | no, no)
 
-    def _about(self):
-
-        WindowAbout(self, self._posX, self._posY)
+        if result == yes:
+            settings_game.save()
+            return True
+        else:
+            return False
 
     def set_field_alignHCenter(self, alignHCenter):
 
@@ -717,39 +650,51 @@ class Window(QtWidgets.QMainWindow):
 
         self._set_header_board(self._headerCountMarkedBoard, number)
 
-    def setGame(self, game):
-
-        self.game = game
-        self._headerButton.clicked.connect(self.game.restart)
-        self._create_menu_action()
-
 
 class HeaderButton(QtWidgets.QPushButton):
 
-    def __init__(self, window, parrent):
-        super(HeaderButton, self).__init__(parrent)
+    def setGeometry(self, posX, posY, size):
 
-        self.window = window
+        self._change_size(size)
+        return super(HeaderButton, self).setGeometry(posX, posY, size, size)
 
     def enterEvent(self, QEvent):
 
-        if (self.window.game.game):
-            self.window.set_header_btn_image('hover')
+        if (game.game):
+            self.set_image('hover')
 
     def leaveEvent(self, QEvent):
 
-        if (self.window.game.game):
-            self.window.set_header_btn_image('default')
+        if (game.game):
+            self.set_image('default')
+
+    def __init__(self, parrent):
+        super(HeaderButton, self).__init__(parrent)
+
+        self.setCursor(cursorHover)
+        self._label = QtWidgets.QLabel(self)
+        self._img = QtGui.QPixmap(getUrl('./image/smiley/default.bmp'))
+        self.size = 0
+
+    def set_image(self, src):
+
+        self._img = QtGui.QPixmap(getUrl(f'./image/smiley/{src}.bmp'))
+        self._label.setPixmap(self._img.scaled(self.size, self.size))
+
+    def _change_size(self, size):
+
+        self.size = size
+        self._label.setFixedSize(self.size, self.size)
+        self._label.setPixmap(self._img.scaled(self.size, self.size))
 
 
 class WindowAbout(QtWidgets.QDialog):
 
-    def __init__(self, window, posX, posY):
+    def __init__(self):
         super(WindowAbout, self).__init__(window, QtCore.Qt.Window)
 
         self.setWindowFlags(QtCore.Qt.Dialog)
         self.setWindowModality(QtCore.Qt.WindowModal)
-        self.window = window
         self._width = 420
         self._height = 360
 
@@ -757,7 +702,7 @@ class WindowAbout(QtWidgets.QDialog):
         self.setCursor(cursorDefault)
         self.setStyleSheet('background-color: grey;')
         self.setFixedSize(self._width, self._height)
-        self.move(posX + 20, posY + 20)
+        self.move(settings_game.params['pos_x'] + 20, settings_game.params['pos_y'] + 20)
 
         actionExit = QtWidgets.QAction(self)
         actionExit.setShortcut('Ctrl+Q')
@@ -766,8 +711,8 @@ class WindowAbout(QtWidgets.QDialog):
 
         view = QtWebEngineWidgets.QWebEngineView(self)
         view.setGeometry(0, 0, self._width, self._height)
-        html = Path('./about.html').read_text(encoding="utf8")
-        css = str(Path('./about.css').resolve())
+        html = Path(getUrl('./about.html')).read_text(encoding="utf8")
+        css = str(Path(getUrl('./about.css')).resolve())
         view.setHtml(html, baseUrl=QtCore.QUrl.fromLocalFile(css))
 
         self.show()
@@ -775,12 +720,11 @@ class WindowAbout(QtWidgets.QDialog):
 
 class WindowSettings(QtWidgets.QDialog):
 
-    def __init__(self, window, posX, posY):
+    def __init__(self):
         super(WindowSettings, self).__init__(window, QtCore.Qt.Window)
 
         self.setWindowFlags(QtCore.Qt.Dialog)
         self.setWindowModality(QtCore.Qt.WindowModal)
-        self.window = window
         self._width = 220
         self._height = 180
 
@@ -788,15 +732,15 @@ class WindowSettings(QtWidgets.QDialog):
         self.setCursor(cursorDefault)
         self.setStyleSheet('background-color: grey;')
         self.setFixedSize(self._width, self._height)
-        self.move(posX + 20, posY + 20)
+        self.move(settings_game.params['pos_x'] + 20, settings_game.params['pos_y'] + 20)
 
         actionExit = QtWidgets.QAction(self)
         actionExit.setShortcut('Ctrl+Q')
         actionExit.triggered.connect(lambda: self.deleteLater())
         self.addAction(actionExit)
 
-        self._boxCheat = self._create_box_radio('Mode cheat', self.window.game.get_modeCheat(), self.window.game.set_modeCheat)
-        self._boxMarking = self._create_box_radio('Endless marking', self.window.game.get_modeEndlessMarking(), self.window.game.set_modeEndlessMarking)
+        self._boxCheat = self._create_box_radio('Mode cheat', game.get_modeCheat(), game.set_modeCheat)
+        self._boxMarking = self._create_box_radio('Endless marking', game.get_modeEndlessMarking(), game.set_modeEndlessMarking)
 
         self._boxWidth = 160
         self._boxHeight = 60
@@ -832,12 +776,11 @@ class WindowSettings(QtWidgets.QDialog):
 
 class WindowLevel(QtWidgets.QDialog):
 
-    def __init__(self, window, posX, posY):
+    def __init__(self):
         super(WindowLevel, self).__init__(window, QtCore.Qt.Window)
 
         self.setWindowFlags(QtCore.Qt.Dialog)
         self.setWindowModality(QtCore.Qt.WindowModal)
-        self.window = window
         self._width = 320
         self._height = 240
 
@@ -845,7 +788,7 @@ class WindowLevel(QtWidgets.QDialog):
         self.setCursor(cursorDefault)
         self.setStyleSheet('background-color: grey;')
         self.setFixedSize(self._width, self._height)
-        self.move(posX + 20, posY + 20)
+        self.move(settings_game.params['pos_x'] + 20, settings_game.params['pos_y'] + 20)
 
         actionExit = QtWidgets.QAction(self)
         actionExit.setShortcut('Ctrl+Q')
@@ -855,8 +798,8 @@ class WindowLevel(QtWidgets.QDialog):
         self.body = QtWidgets.QWidget(self)
         self.body.resize(self._width, self._height)
 
-        self._level = self.window.game.get_level()
-        self._cells_max_amount = self.window.game.get_cells_max_amount()
+        self._level = game.level
+        self._cells_max_amount = game.get_cells_max_amount()
         self._x = self._level[0]
         self._y = self._level[1]
         self._b = self._level[2]
@@ -874,7 +817,7 @@ class WindowLevel(QtWidgets.QDialog):
         self.description = QtWidgets.QLabel(self.body)
         self.description.setGeometry(0, 150, self._width, 50)
         self.description.setAlignment(QtCore.Qt.AlignCenter)
-        self.description.setText(f'''Cells max with width({self.window.size().width()}) and height({self.window.size().height()}).\nInput range can move with helping (←, →, ↑, ↓)''')
+        self.description.setText(f'''Cells max with width({window.size().width()}) and height({window.size().height()}).\nInput range can move with helping (←, →, ↑, ↓)''')
 
         self.show()
 
@@ -942,11 +885,24 @@ class WindowLevel(QtWidgets.QDialog):
 
     def _play(self):
 
-        self.window.game.set_level([self._x, self._y, self._b])
-        self.window.game.restart()
+        game.set_level([self._x, self._y, self._b])
+        game.restart()
         self.deleteLater()
 
 
+class Settings():
+
+    def __init__(self):
+
+        self._file = open(getUrl('./sfg.json'), 'r')
+        self.params = json.loads(self._file.read())
+        self._file.close()
+
+    def save(self):
+
+        self._file = open(getUrl('./sfg.json'), 'w')
+        self._file.write(json.dumps(self.params))
+        self._file.close()
 
 
 def make_cursor(url, size=60):
@@ -955,20 +911,25 @@ def make_cursor(url, size=60):
     pixmap = pixmap.scaled(size, size)
     return QtGui.QCursor(pixmap)
 
+def getUrl(url):
+
+    return os.path.join(basedir, url)
 
 if (__name__ == '__main__'):
 
+    basedir = os.path.dirname(__file__)
     app = QtWidgets.QApplication(sys.argv)
 
-    cursorShovel = make_cursor('./image/cursor/shovel.bmp')
-    cursorMetalDetector = make_cursor('./image/cursor/metalDetector.bmp')
-    cursorDefault = make_cursor('./image/cursor/default.bmp')
-    cursorHover = make_cursor('./image/cursor/hover.bmp')
+    cursorShovel = make_cursor(getUrl('./image/cursor/shovel.bmp'))
+    cursorMetalDetector = make_cursor(getUrl('./image/cursor/metalDetector.bmp'))
+    cursorDefault = make_cursor(getUrl('./image/cursor/default.bmp'))
+    cursorHover = make_cursor(getUrl('./image/cursor/hover.bmp'))
 
+    settings_game = Settings()
+    game = Game()
     window = Window()
-    game = Game(window)
-    window.setGame(game)
-    game.restart()
 
     window.show()
+    game.restart()
+
     sys.exit(app.exec_())
