@@ -1,9 +1,8 @@
-from PyQt5 import QtWidgets, QtGui, QtCore, QtWebEngineWidgets
+from PyQt5 import QtWidgets, QtGui, QtCore, QtWebEngineWidgets, QtMultimedia
 
 from random import randint
 from pathlib import Path
-import os, sys, json
-
+import os, sys, json, pkgutil
 
 class Cell(QtWidgets.QPushButton):
 
@@ -30,7 +29,6 @@ class Cell(QtWidgets.QPushButton):
         self._role = 'empty'
         self.img = QtGui.QPixmap(getUrl('./image/cell/cell_11.bmp'))
         self.imgLabel = QtWidgets.QLabel(self)
-
         self.setCursor(cursorShovel)
 
         self._image_adjustment()
@@ -41,6 +39,7 @@ class Cell(QtWidgets.QPushButton):
             self._markedFlag = False
             self._markedSupposed = True
             game.set_amount_marked(False)
+            sound.play('flag_take_off')
             self._set_image(10)
 
         elif self._markedSupposed:
@@ -50,6 +49,7 @@ class Cell(QtWidgets.QPushButton):
         elif not game.is_amount_marked():
             self._markedFlag = True
             game.set_amount_marked(True)
+            sound.play('flag_put')
             self._set_image(9)
 
     def _set_image(self, id):
@@ -64,7 +64,7 @@ class Cell(QtWidgets.QPushButton):
 
     def set_role(self, role):
 
-        if game.get_modeCheat():
+        if settings_game.params['mode_cheat']:
             self._set_image(12)
         if self._role == 'bomb':
             return False
@@ -88,9 +88,9 @@ class Cell(QtWidgets.QPushButton):
         if self._opened:
             return False
 
+        sound.play('cell_open')
         self._opened = True
         self.setCursor(cursorMetalDetector)
-        game.cell_opening(self._role)
 
         if (self._markedFlag):
             game.set_amount_marked(False)
@@ -99,6 +99,13 @@ class Cell(QtWidgets.QPushButton):
             self._set_image(self._amountBombAround)
             if self._amountBombAround == 0:
                 game.opening_around_cells(self)
+        elif game.game:
+            blackout = QtWidgets.QWidget(self)
+            blackout.setStyleSheet('background: rgba(255,0,0,0.4);')
+            blackout.resize(self._size, self._size)
+            blackout.show()
+
+        game.cell_opening(self._role)
 
     def set_cursor_default(self):
 
@@ -106,29 +113,30 @@ class Cell(QtWidgets.QPushButton):
 
     def explode(self):
 
-            self._set_image(12)
+        self._set_image(12)
 
 
 class Game:
 
     def __init__(self):
         self._cellMinSize = 35
-        self._modeCheat = settings_game.params['mode_cheat']
-        self._modeEndlessMarking = settings_game.params['mode_endless_marking']
         self._cellMaxAmountX = 0
         self._cellMaxAmountY = 0
         self._cellSize = 35
         self.game = False
-        self.set_level(settings_game.params['level'])
+        self.level_update()
 
         self._stopwatch = QtCore.QTimer()
         self._stopwatch.setInterval(1000)
         self._stopwatch.timeout.connect(self._tick)
 
-    def set_level(self, level):
+    def level_update(self):
 
-        self.level = level
-        settings_game.params['level'] = level
+        self.level = [
+            settings_game.params['level_h'],
+            settings_game.params['level_v'],
+            settings_game.params['level_b']
+        ]
         self.victoryAmountCellOpened = (self.level[0] * self.level[1]) - self.level[2]
 
     def start(self):
@@ -146,11 +154,16 @@ class Game:
                 cell.set_cursor_default()
 
         if scenario == 'defeat':
+            window.headerButton.set_image('defeat')
+            sound.play('defeat')
             for bomb in self._bombs:
                 bomb.explode()
-            window.headerButton.set_image('defeat')
+                # loop = QtCore.QEventLoop()
+                # QtCore.QTimer.singleShot(200, loop.quit)
+                # loop.exec_()
         else:
             window.headerButton.set_image('win')
+            sound.play('win')
 
     def restart(self):
 
@@ -299,7 +312,6 @@ class Game:
 
         self._cellMaxAmountX = int(window.field.size().width() / self._cellMinSize)
         self._cellMaxAmountY = int(window.field.size().height() / self._cellMinSize)
-        # print(f'maximum amount cells\nx: {self._cellMaxAmountX}, y: {self._cellMaxAmountY}')
 
     def _bomb_create(self):
 
@@ -374,7 +386,7 @@ class Game:
 
     def is_amount_marked(self):
 
-        if self._modeEndlessMarking:
+        if settings_game.params['mode_endless_marking']:
             return False
 
         if self._amountMarked >= self.level[2]:
@@ -390,24 +402,6 @@ class Game:
 
         window.set_header_count_marked(self._amountMarked)
 
-    def set_modeCheat(self, status):
-
-        self._modeCheat = status
-        settings_game.params['mode_cheat'] = status
-
-    def set_modeEndlessMarking(self, status):
-
-        self._modeEndlessMarking = status
-        settings_game.params['mode_endless_marking'] = status
-
-    def get_modeCheat(self):
-
-        return self._modeCheat
-
-    def get_modeEndlessMarking(self):
-
-        return self._modeEndlessMarking
-
     def get_cells_general_height(self):
 
         return self._cellSize * self.level[1]
@@ -421,8 +415,9 @@ class Window(QtWidgets.QMainWindow):
 
     def moveEvent(self, event):
 
-        settings_game.params['pos_x'] = event.pos().x();
-        settings_game.params['pos_y'] = event.pos().y();
+        if settings_game.params['mode_save_wind_pos']:
+            settings_game.params['pos_x'] = event.pos().x();
+            settings_game.params['pos_y'] = event.pos().y();
 
         return super(Window, self).moveEvent(event)
 
@@ -620,8 +615,8 @@ class Window(QtWidgets.QMainWindow):
 
     def _window_exit(self):
 
-        title = 'exit'
-        text = 'gondon'
+        title = 'Confirmation'
+        text = 'close the application ?'
         yes = QtWidgets.QMessageBox.Yes
         no = QtWidgets.QMessageBox.No
         result = QtWidgets.QMessageBox.question(self, title, text, yes | no, no)
@@ -647,6 +642,14 @@ class Window(QtWidgets.QMainWindow):
         # self.setWindowTitle(f'{self.title} : {number}s')
 
     def set_header_count_marked(self, number):
+
+        if settings_game.params['mode_inversion_marking']:
+            number = game.level[2] - number
+
+        if number > 999:
+            number = 999
+        elif number < 0:
+            number = 0
 
         self._set_header_board(self._headerCountMarkedBoard, number)
 
@@ -674,18 +677,18 @@ class HeaderButton(QtWidgets.QPushButton):
         self.setCursor(cursorHover)
         self._label = QtWidgets.QLabel(self)
         self._img = QtGui.QPixmap(getUrl('./image/smiley/default.bmp'))
-        self.size = 0
+        self._size = 0
 
     def set_image(self, src):
 
         self._img = QtGui.QPixmap(getUrl(f'./image/smiley/{src}.bmp'))
-        self._label.setPixmap(self._img.scaled(self.size, self.size))
+        self._label.setPixmap(self._img.scaled(self._size, self._size))
 
     def _change_size(self, size):
 
-        self.size = size
-        self._label.setFixedSize(self.size, self.size)
-        self._label.setPixmap(self._img.scaled(self.size, self.size))
+        self._size = size
+        self._label.setFixedSize(self._size, self._size)
+        self._label.setPixmap(self._img.scaled(self._size, self._size))
 
 
 class WindowAbout(QtWidgets.QDialog):
@@ -706,7 +709,7 @@ class WindowAbout(QtWidgets.QDialog):
 
         actionExit = QtWidgets.QAction(self)
         actionExit.setShortcut('Ctrl+Q')
-        actionExit.triggered.connect(lambda: self.deleteLater())
+        actionExit.triggered.connect(self.deleteLater)
         self.addAction(actionExit)
 
         view = QtWebEngineWidgets.QWebEngineView(self)
@@ -725,56 +728,92 @@ class WindowSettings(QtWidgets.QDialog):
 
         self.setWindowFlags(QtCore.Qt.Dialog)
         self.setWindowModality(QtCore.Qt.WindowModal)
-        self._width = 220
-        self._height = 180
+
+        self._width = 320
+        self._height = 300
 
         self.setWindowTitle('Settings')
-        self.setCursor(cursorDefault)
-        self.setStyleSheet('background-color: grey;')
         self.setFixedSize(self._width, self._height)
         self.move(settings_game.params['pos_x'] + 20, settings_game.params['pos_y'] + 20)
+        self.setCursor(cursorDefault)
+        self.setStyleSheet('background-color: grey;')
 
         actionExit = QtWidgets.QAction(self)
         actionExit.setShortcut('Ctrl+Q')
-        actionExit.triggered.connect(lambda: self.deleteLater())
+        actionExit.triggered.connect(self.deleteLater)
         self.addAction(actionExit)
 
-        self._boxCheat = self._create_box_radio('Mode cheat', game.get_modeCheat(), game.set_modeCheat)
-        self._boxMarking = self._create_box_radio('Endless marking', game.get_modeEndlessMarking(), game.set_modeEndlessMarking)
 
-        self._boxWidth = 160
-        self._boxHeight = 60
-        alignHCenter = int(self._width / 2) - int(self._boxWidth / 2)
-        self._boxMarking[0].move(alignHCenter, 10)
-        self._boxMarking[0].resize(self._boxWidth, self._boxHeight)
-        self._boxCheat[0].move(alignHCenter, 80)
-        self._boxCheat[0].resize(self._boxWidth, self._boxHeight)
+        self._body = QtWidgets.QWidget()
+        self._body.setGeometry(0, 0, self._width, 650)
+
+        self._form = QtWidgets.QFormLayout(self._body)
+        self._form.setFormAlignment(QtCore.Qt.AlignHCenter)
+        self._form.setLabelAlignment(QtCore.Qt.AlignLeft)
+
+        self._scroll = QtWidgets.QScrollArea(self)
+        self._scroll.setObjectName('window_sett_scroll')
+        self._scroll.setStyleSheet('#window_sett_scroll { border: none; }')
+        self._scroll.setAlignment(QtCore.Qt.AlignRight)
+        self._scrollBar = self._scroll.verticalScrollBar()
+        self._scrollBar.setFixedHeight(self._height)
+        self._scroll.setWidget(self._body)
+
+        self._btnReset = QtWidgets.QPushButton(self)
+        self._btnReset.setText('Reset')
+        self._btnReset.setCursor(cursorHover)
+        self._btnReset.clicked.connect(self._reset_settings)
+        self._btnReset.resize(80, 30)
+
+        self._boxRange = BoxRange('sound_valume', 0, 100, 1)
+        self._boxRange.setFixedWidth(122)
+        self._boxRange.event_connect(sound.change_volume)
+
+
+        self._inputWindPos = self._formAddRadio('Save last window\n position', 'mode_save_wind_pos')
+        self._inputMarkEndls = self._formAddRadio('Endless marking ', 'mode_endless_marking')
+        self._inputMarkInver= self._formAddRadio('Inversion marking', 'mode_inversion_marking')
+        self._inputSound = self._formAddRadio('Sound', 'mode_sound')
+        self._form.addRow('Sound volume : ', self._boxRange)
+        self._inputSoundCellOpen = self._formAddRadio('Sound cell open', 'sound_cell_open')
+        self._inputSoundDefeat = self._formAddRadio('Sound defeat', 'sound_defeat')
+        self._inputSoundWIn = self._formAddRadio('Sound win', 'sound_win')
+        self._inputSoundPut = self._formAddRadio('Sound flag put', 'sound_flag_put')
+        self._inputSoundTake = self._formAddRadio('Sound flag take off', 'sound_flag_take_off')
+        self._inputCheat = self._formAddRadio('Mode cheat', 'mode_cheat')
+        self._form.addRow('Settings : ', self._btnReset)
 
         self.show()
 
-    def _create_box_radio(self, title, status, func):
+    def _formAddRadio(self, title, param):
 
-        radio1 = QtWidgets.QRadioButton('OFF')
-        radio2 = QtWidgets.QRadioButton('ON')
+        radio = BoxRadio(param)
+        self._form.addRow(f'{title} : ', radio)
 
-        radio1.setCursor(cursorHover)
-        radio2.setCursor(cursorHover)
+        return radio
 
-        radio1.setChecked(not status)
-        radio2.setChecked(status)
+    def _reset_settings(self):
 
-        radio2.toggled.connect(func)
-
-        box = QtWidgets.QGroupBox(title, self)
-        hbox = QtWidgets.QHBoxLayout()
-        hbox.addWidget(radio1)
-        hbox.addWidget(radio2)
-        box.setLayout(hbox)
-
-        return [box, hbox, radio1, radio2]
+        self._inputWindPos.set_status(True)
+        self._inputMarkEndls.set_status(True)
+        self._inputMarkInver.set_status(False)
+        self._inputSound.set_status(True)
+        self._boxRange.set_value(100)
+        self._inputSoundCellOpen.set_status(True)
+        self._inputSoundDefeat.set_status(True)
+        self._inputSoundWIn.set_status(True)
+        self._inputSoundPut.set_status(True)
+        self._inputSoundTake.set_status(True)
+        self._inputCheat.set_status(False)
 
 
 class WindowLevel(QtWidgets.QDialog):
+
+    def closeEvent(self, event):
+
+        self._recovery_level()
+        event.accept()
+        return super(WindowLevel, self).closeEvent(event)
 
     def __init__(self):
         super(WindowLevel, self).__init__(window, QtCore.Qt.Window)
@@ -782,7 +821,8 @@ class WindowLevel(QtWidgets.QDialog):
         self.setWindowFlags(QtCore.Qt.Dialog)
         self.setWindowModality(QtCore.Qt.WindowModal)
         self._width = 320
-        self._height = 240
+        self._height = 300
+        self._formHeight = 200
 
         self.setWindowTitle('New Level')
         self.setCursor(cursorDefault)
@@ -792,102 +832,161 @@ class WindowLevel(QtWidgets.QDialog):
 
         actionExit = QtWidgets.QAction(self)
         actionExit.setShortcut('Ctrl+Q')
-        actionExit.triggered.connect(lambda: self.deleteLater())
+        actionExit.triggered.connect(self._recovery_level)
         self.addAction(actionExit)
 
-        self.body = QtWidgets.QWidget(self)
-        self.body.resize(self._width, self._height)
+        self._body = QtWidgets.QWidget(self)
+        self._body.setGeometry(0, 0, self._width, self._height)
+        self._main = QtWidgets.QWidget(self._body)
+        self._main.resize(self._width, self._formHeight)
 
-        self._level = game.level
+        self._form = QtWidgets.QFormLayout(self._main)
+        self._form.setFormAlignment(QtCore.Qt.AlignHCenter)
+        self._form.setLabelAlignment(QtCore.Qt.AlignLeft)
+
+
+        self._old_level = game.level
         self._cells_max_amount = game.get_cells_max_amount()
-        self._x = self._level[0]
-        self._y = self._level[1]
-        self._b = self._level[2]
 
-        self.rangeH = self._create_range('h')
-        self.rangeV = self._create_range('v')
-        self.rangeB = self._create_range('b')
+        self._boxRangeH = BoxRange('level_h', 2, self._cells_max_amount[0], 1)
+        self._boxRangeV = BoxRange('level_v', 2, self._cells_max_amount[1], 1)
+        self._boxRangeB = BoxRange('level_b', 1, self._boxRangeB_calc_max(), 1)
 
-        self.btn = QtWidgets.QPushButton(self.body)
-        self.btn.setText('Play')
-        self.btn.setGeometry(int(self.body.size().width() / 2) - 30, 100, 60, 40)
-        self.btn.setCursor(cursorHover)
-        self.btn.clicked.connect(self._play)
+        self._boxRangeH.setFixedWidth(122)
+        self._boxRangeV.setFixedWidth(122)
+        self._boxRangeB.setFixedWidth(122)
+        self._boxRangeH.event_connect(self._change_level)
+        self._boxRangeV.event_connect(self._change_level)
 
-        self.description = QtWidgets.QLabel(self.body)
-        self.description.setGeometry(0, 150, self._width, 50)
-        self.description.setAlignment(QtCore.Qt.AlignCenter)
-        self.description.setText(f'''Cells max with width({window.size().width()}) and height({window.size().height()}).\nInput range can move with helping (←, →, ↑, ↓)''')
+        self._btnPlay = QtWidgets.QPushButton()
+        self._btnPlay.setCursor(cursorHover)
+        self._btnPlay.setText('Play')
+        self._btnPlay.clicked.connect(self._play)
+
+        self._form.addRow('Amount Cells in H : ', self._boxRangeH)
+        self._form.addRow('Amount Cells in V : ', self._boxRangeV)
+        self._form.addRow('Amount Bomb : ', self._boxRangeB)
+        self._form.addRow('Level : ', self._btnPlay)
+
+
+        self._description = QtWidgets.QLabel(self._body)
+        self._description.setGeometry(0, self._formHeight, self._width, 50)
+        self._description.setAlignment(QtCore.Qt.AlignCenter)
+        self._description.setText(f'Cells max amount with width({window.size().width()})/height({window.size().height()}).\nInput range can move with helping (←, →, ↑, ↓),\n and mouse scroll.')
+
 
         self.show()
 
-    def _create_range(self, isRange):
+    def _recovery_level(self):
 
-        rangeH = QtWidgets.QWidget(self.body)
-        rangeHText = QtWidgets.QLabel(rangeH)
-        rangeHInput = QtWidgets.QSlider(rangeH)
+        settings_game.params['level_h'] = self._old_level[0]
+        settings_game.params['level_v'] = self._old_level[1]
+        settings_game.params['level_b'] = self._old_level[2]
+        self.deleteLater()
 
-        if isRange == 'h':
-            rangeH.move(5, 5)
-            rangeHText.setText(f'Amount Cells in H: {self._level[0]}')
-            rangeHInput.setRange(2, self._cells_max_amount[0])
-            rangeHInput.setSliderPosition(self._x)
-            rangeHInput.valueChanged.connect(self.changeAmountCellH)
-        elif isRange == 'v':
-            rangeH.move(5, 30)
-            rangeHText.setText(f'Amount Cells in V: {self._level[1]}')
-            rangeHInput.setRange(2, self._cells_max_amount[1])
-            rangeHInput.setSliderPosition(self._y)
-            rangeHInput.valueChanged.connect(self.changeAmountCellV)
-        elif isRange == 'b':
-            rangeH.move(5, 60)
-            rangeHText.setText(f'Amount Bomb      : {self._level[2]}')
-            rangeHInput.setRange(1, (self._x * self._y) - 1)
-            rangeHInput.setSliderPosition(self._b)
-            rangeHInput.valueChanged.connect(self.changeAmountCellBomb)
+    def _boxRangeB_calc_max(self):
 
-        rangeHText.adjustSize()
+        return (settings_game.params['level_h'] * settings_game.params['level_v']) - 1
 
-        rangeHInput.setSingleStep(1)
-        rangeHInput.setOrientation(QtCore.Qt.Horizontal)
-        rangeHInput.setGeometry(rangeHText.size().width() + 20, 0, 100, 30)
-        rangeHInput.setCursor(cursorHover)
+    def _change_level(self, value):
 
-        rangeH.adjustSize()
-
-        return [rangeH, rangeHText, rangeHInput]
-
-    def changeAmountCellH(self):
-
-        self._x = self.rangeH[2].value()
-        self.rangeH[1].setText(f'Amount Cells in H: {self._x}')
-        self.rangeH[1].adjustSize()
-
-        self._set_bomb_max()
-
-    def changeAmountCellV(self):
-
-        self._y = self.rangeV[2].value()
-        self.rangeV[1].setText(f'Amount Cells in V: {self._y}')
-        self.rangeV[1].adjustSize()
-
-        self._set_bomb_max()
-
-    def changeAmountCellBomb(self):
-
-        self._b = self.rangeB[2].value()
-        self.rangeB[1].setText(f'Amount Bomb: {self._b}')
-        self.rangeB[1].adjustSize()
-
-    def _set_bomb_max(self):
-
-        self.rangeB[2].setMaximum((self._x * self._y) - 1)
+        self._boxRangeB.set_max(self._boxRangeB_calc_max())
 
     def _play(self):
 
-        game.set_level([self._x, self._y, self._b])
+        game.level_update()
         game.restart()
         self.deleteLater()
+
+
+class BoxRange(QtWidgets.QGroupBox):
+
+    def __init__(self, param, valueMin, valueMax, valueStep, parent=None):
+        super(BoxRange, self).__init__(parent)
+        self._parametr = param
+        self._is_func = False
+        self._func = None
+
+        self._valueMin = valueMin
+        self._valueMax = valueMax
+        value = settings_game.params[self._parametr]
+
+        self._rInput = QtWidgets.QSlider()
+        self._rInput.setOrientation(QtCore.Qt.Horizontal)
+        self._rInput.setCursor(cursorHover)
+        self._rInput.setRange(self._valueMin, self._valueMax)
+        self._rInput.setSingleStep(valueStep)
+        self._rInput.setSliderPosition(value)
+        self._rInput.valueChanged.connect(self._changeRange)
+
+        self._label = QtWidgets.QLabel()
+        self._label.setText(str(value))
+
+        layout = QtWidgets.QHBoxLayout()
+        layout.addWidget(self._label)
+        layout.addWidget(self._rInput)
+        self.setLayout(layout)
+
+    def _changeRange(self):
+
+        settings_game.params[self._parametr] = self._rInput.value()
+        self._label.setText(str(self._rInput.value()))
+
+        if self._is_func:
+            self._func(self._rInput.value())
+
+    def set_value(self, value):
+
+        settings_game.params[self._parametr] = value
+        self._rInput.setSliderPosition(value)
+
+    def set_min(self, value):
+
+        self._valueMin = value
+        self._rInput.setRange(self._valueMin, self._valueMax)
+
+    def set_max(self, value):
+
+        self._valueMax = value
+        self._rInput.setRange(self._valueMin, self._valueMax)
+
+    def event_connect(self, func):
+
+        self._func = func
+        self._is_func = True
+
+class BoxRadio(QtWidgets.QGroupBox):
+
+    def __init__(self, param, parent=None):
+        super(BoxRadio, self).__init__(parent)
+        self._parametr = param
+
+        self._radioOff = QtWidgets.QRadioButton('OFF')
+        self._radioOn = QtWidgets.QRadioButton('ON')
+        self._radioOff.setCursor(cursorHover)
+        self._radioOn.setCursor(cursorHover)
+        self._update_status()
+
+        self._radioOn.toggled.connect(self._chengeRadio)
+
+        layout = QtWidgets.QHBoxLayout()
+        layout.addWidget(self._radioOff)
+        layout.addWidget(self._radioOn)
+        self.setLayout(layout)
+
+    def _chengeRadio(self, status):
+
+        settings_game.params[self._parametr] = status
+
+    def set_status(self, status):
+
+        settings_game.params[self._parametr] = status
+        self._update_status()
+
+    def _update_status(self):
+
+        self._radioOff.setChecked(not settings_game.params[self._parametr])
+        self._radioOn.setChecked(settings_game.params[self._parametr])
 
 
 class Settings():
@@ -905,6 +1004,50 @@ class Settings():
         self._file.close()
 
 
+class Sounds():
+
+    def play(self, name):
+
+        if settings_game.params['mode_sound'] and settings_game.params[f'sound_{name}']:
+            return self._sounds[name].play()
+        else:
+            return False
+
+    def __init__(self):
+
+        self._is_gstreamer = False
+        if check_gstreamer():
+            self._is_gstreamer = True
+            self._sounds = {
+                'cell_open': QtMultimedia.QMediaPlayer(),
+                'defeat': QtMultimedia.QMediaPlayer(),
+                'win': QtMultimedia.QMediaPlayer(),
+                'flag_put': QtMultimedia.QMediaPlayer(),
+                'flag_take_off': QtMultimedia.QMediaPlayer()
+            }
+
+            self._sounds['cell_open'].setMedia(QtMultimedia.QMediaContent(QtCore.QUrl.fromLocalFile(getUrl('./sounds/cell_open.wav'))))
+            self._sounds['defeat'].setMedia(QtMultimedia.QMediaContent(QtCore.QUrl.fromLocalFile(getUrl('./sounds/cell_explode.wav'))))
+            self._sounds['win'].setMedia(QtMultimedia.QMediaContent(QtCore.QUrl.fromLocalFile(getUrl('./sounds/win.wav'))))
+            self._sounds['flag_put'].setMedia(QtMultimedia.QMediaContent(QtCore.QUrl.fromLocalFile(getUrl('./sounds/flag_put.wav'))))
+            self._sounds['flag_take_off'].setMedia(QtMultimedia.QMediaContent(QtCore.QUrl.fromLocalFile(getUrl('./sounds/flag_take_off.wav'))))
+        else:
+            self._sounds = {
+                'cell_open': QtMultimedia.QSound(getUrl('./sounds/cell_open.wav')),
+                'defeat': QtMultimedia.QSound(getUrl('./sounds/cell_explode.wav')),
+                'win': QtMultimedia.QSound(getUrl('./sounds/win.wav')),
+                'flag_put': QtMultimedia.QSound(getUrl('./sounds/flag_put.wav')),
+                'flag_take_off': QtMultimedia.QSound(getUrl('./sounds/flag_take_off.wav'))
+            }
+
+    def change_volume(self, value):
+
+        if self._is_gstreamer:
+            for key in self._sounds:
+                self._sounds[key].setVolume(value * 0.01)
+        else:
+            return False
+
 def make_cursor(url, size=60):
 
     pixmap = QtGui.QPixmap(url)
@@ -914,6 +1057,10 @@ def make_cursor(url, size=60):
 def getUrl(url):
 
     return os.path.join(basedir, url)
+
+def check_gstreamer():
+
+    return 'gi.repository.Gst' in [modname for _, modname, _ in pkgutil.iter_modules()]
 
 if (__name__ == '__main__'):
 
@@ -925,7 +1072,9 @@ if (__name__ == '__main__'):
     cursorDefault = make_cursor(getUrl('./image/cursor/default.bmp'))
     cursorHover = make_cursor(getUrl('./image/cursor/hover.bmp'))
 
+
     settings_game = Settings()
+    sound = Sounds()
     game = Game()
     window = Window()
 

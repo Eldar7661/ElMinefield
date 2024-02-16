@@ -1,1 +1,1 @@
-{"level": [5, 7, 5], "mode_cheat": false, "mode_endless_marking": true, "width": 535, "height": 440, "pos_x": 946, "pos_y": 248}
+{"width": 520, "height": 460, "pos_x": 0, "pos_y": 28, "level_h": 5, "level_v": 5, "level_b": 24, "mode_save_wind_pos": true, "mode_endless_marking": true, "mode_inversion_marking": false, "mode_cheat": false, "mode_sound": true, "sound_valume": 100, "sound_cell_open": true, "sound_defeat": true, "sound_win": true, "sound_flag_take_off": true, "sound_flag_put": true}
