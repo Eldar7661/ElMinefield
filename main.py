@@ -1,10 +1,17 @@
-from PyQt5 import QtWidgets, QtGui, QtCore, QtWebEngineWidgets, QtMultimedia
+# from PyQt5 import QtWidgets, QtGui, QtCore, QtWebEngineWidgets, QtMultimedia
+
+from PyQt5.QtWidgets import QApplication, QMainWindow, QDialog, QWidget, QGroupBox, QHBoxLayout, QFormLayout, QLabel, QAction, QPushButton, QSlider, QRadioButton, QMessageBox, QScrollArea
+from PyQt5.QtCore import Qt, QUrl, QTimer
+from PyQt5.QtGui import QPixmap, QIcon, QCursor
+from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent, QSound
+from PyQt5.QtWebEngineWidgets import QWebEngineView
 
 from random import randint
 from pathlib import Path
 import os, sys, json, pkgutil
 
-class Cell(QtWidgets.QPushButton):
+
+class Cell(QPushButton):
 
     def mousePressEvent(self, QMouseEvent):
 
@@ -12,9 +19,9 @@ class Cell(QtWidgets.QPushButton):
             game.start()
 
         if not self._opened and game.game:
-            if QMouseEvent.button() == QtCore.Qt.LeftButton:
+            if QMouseEvent.button() == Qt.LeftButton:
                 self.opening()
-            elif QMouseEvent.button() == QtCore.Qt.RightButton:
+            elif QMouseEvent.button() == Qt.RightButton:
                 self._set_mark()
 
     def __init__(self, field, size):
@@ -27,8 +34,8 @@ class Cell(QtWidgets.QPushButton):
         self._markedFlag = False
         self._markedSupposed = False
         self._role = 'empty'
-        self.img = QtGui.QPixmap(getUrl('./image/cell/cell_11.bmp'))
-        self.imgLabel = QtWidgets.QLabel(self)
+        self.img = QPixmap(getUrl('./image/cell/cell_11.bmp'))
+        self.imgLabel = QLabel(self)
         self.setCursor(cursorShovel)
 
         self._image_adjustment()
@@ -54,7 +61,7 @@ class Cell(QtWidgets.QPushButton):
 
     def _set_image(self, id):
 
-        self.img = QtGui.QPixmap(getUrl(f'./image/cell/cell_{id}.bmp'))
+        self.img = QPixmap(getUrl(f'./image/cell/cell_{id}.bmp'))
         self._image_adjustment()
 
     def _image_adjustment(self):
@@ -100,7 +107,7 @@ class Cell(QtWidgets.QPushButton):
             if self._amountBombAround == 0:
                 game.opening_around_cells(self)
         elif game.game:
-            blackout = QtWidgets.QWidget(self)
+            blackout = QWidget(self)
             blackout.setStyleSheet('background: rgba(255,0,0,0.4);')
             blackout.resize(self._size, self._size)
             blackout.show()
@@ -126,7 +133,7 @@ class Game:
         self.game = False
         self.level_update()
 
-        self._stopwatch = QtCore.QTimer()
+        self._stopwatch = QTimer()
         self._stopwatch.setInterval(1000)
         self._stopwatch.timeout.connect(self._tick)
 
@@ -158,9 +165,6 @@ class Game:
             sound.play('defeat')
             for bomb in self._bombs:
                 bomb.explode()
-                # loop = QtCore.QEventLoop()
-                # QtCore.QTimer.singleShot(200, loop.quit)
-                # loop.exec_()
         else:
             window.headerButton.set_image('win')
             sound.play('win')
@@ -411,7 +415,7 @@ class Game:
         return [self._cellMaxAmountX, self._cellMaxAmountY]
 
 
-class Window(QtWidgets.QMainWindow):
+class Window(QMainWindow):
 
     def moveEvent(self, event):
 
@@ -445,9 +449,9 @@ class Window(QtWidgets.QMainWindow):
 
         self._menu = self.menuBar()
         self._menuGame = self._menu.addMenu('Game')
-        self.body = QtWidgets.QWidget(self)
-        self.header = QtWidgets.QWidget(self.body)
-        self.field = QtWidgets.QWidget(self.body)
+        self.body = QWidget(self)
+        self.header = QWidget(self.body)
+        self.field = QWidget(self.body)
         self.headerButton = HeaderButton(self.header)
         self._headerCountMarkedBoard = self._create_board()
         self._headerStopwatchBoard = self._create_board()
@@ -474,7 +478,7 @@ class Window(QtWidgets.QMainWindow):
 
 
         self.title = 'Minesweeper';
-        self.setWindowIcon(QtGui.QIcon(getUrl('./image/icon.ico')))
+        self.setWindowIcon(QIcon(getUrl('./image/icon_minesweeper.ico')))
         self.setWindowTitle(self.title)
         self.setGeometry(posX, posY, self._width, self._height)
         self.setCursor(cursorDefault)
@@ -538,11 +542,11 @@ class Window(QtWidgets.QMainWindow):
 
     def _create_menu_action(self):
 
-        manuRestart = QtWidgets.QAction(QtGui.QIcon(getUrl('./image/menu/restart.bmp')), '&Restart', self)
-        manuNewLevel = QtWidgets.QAction(QtGui.QIcon(getUrl('./image/menu/new_level.bmp')), '&New Level', self)
-        manuExit = QtWidgets.QAction(QtGui.QIcon(getUrl('./image/menu/exit.bmp')), '&Exit', self)
-        manuSettings = QtWidgets.QAction('&Settings', self)
-        manuAbout = QtWidgets.QAction('&About the project', self)
+        manuRestart = QAction(QIcon(getUrl('./image/menu/restart.bmp')), '&Restart', self)
+        manuNewLevel = QAction(QIcon(getUrl('./image/menu/new_level.bmp')), '&New Level', self)
+        manuExit = QAction(QIcon(getUrl('./image/menu/exit.bmp')), '&Exit', self)
+        manuSettings = QAction('&Settings', self)
+        manuAbout = QAction('&About the project', self)
 
         manuRestart.setShortcut('Ctrl+R')
         manuNewLevel.setShortcut('Ctrl+N')
@@ -568,19 +572,19 @@ class Window(QtWidgets.QMainWindow):
 
     def _create_board(self):
 
-        board = QtWidgets.QWidget(self.header)
+        board = QWidget(self.header)
         board.setStyleSheet('background:black;border-radius:3px;')
         boardFull = [
             board,
             [
-                QtWidgets.QLabel(board),
-                QtWidgets.QLabel(board),
-                QtWidgets.QLabel(board)
+                QLabel(board),
+                QLabel(board),
+                QLabel(board)
             ],
             [
-                QtGui.QPixmap(getUrl('./image/board/digit_0.bmp')),
-                QtGui.QPixmap(getUrl('./image/board/digit_0.bmp')),
-                QtGui.QPixmap(getUrl('./image/board/digit_0.bmp')),
+                QPixmap(getUrl('./image/board/digit_0.bmp')),
+                QPixmap(getUrl('./image/board/digit_0.bmp')),
+                QPixmap(getUrl('./image/board/digit_0.bmp')),
             ]
         ]
 
@@ -603,7 +607,7 @@ class Window(QtWidgets.QMainWindow):
         numbers = self._board_convert_number(number)
 
         for i in range(3):
-            board[2][i] = QtGui.QPixmap(getUrl(f'./image/board/digit_{numbers[i]}.bmp'))
+            board[2][i] = QPixmap(getUrl(f'./image/board/digit_{numbers[i]}.bmp'))
 
         for i in range(3):
             board[1][i].setPixmap(board[2][i].scaled(self._headerBoardLabelWidth, self._headerBoardLabelHeight))
@@ -617,9 +621,9 @@ class Window(QtWidgets.QMainWindow):
 
         title = 'Confirmation'
         text = 'close the application ?'
-        yes = QtWidgets.QMessageBox.Yes
-        no = QtWidgets.QMessageBox.No
-        result = QtWidgets.QMessageBox.question(self, title, text, yes | no, no)
+        yes = QMessageBox.Yes
+        no = QMessageBox.No
+        result = QMessageBox.question(self, title, text, yes | no, no)
 
         if result == yes:
             settings_game.save()
@@ -654,7 +658,7 @@ class Window(QtWidgets.QMainWindow):
         self._set_header_board(self._headerCountMarkedBoard, number)
 
 
-class HeaderButton(QtWidgets.QPushButton):
+class HeaderButton(QPushButton):
 
     def setGeometry(self, posX, posY, size):
 
@@ -675,13 +679,13 @@ class HeaderButton(QtWidgets.QPushButton):
         super(HeaderButton, self).__init__(parrent)
 
         self.setCursor(cursorHover)
-        self._label = QtWidgets.QLabel(self)
-        self._img = QtGui.QPixmap(getUrl('./image/smiley/default.bmp'))
+        self._label = QLabel(self)
+        self._img = QPixmap(getUrl('./image/smiley/default.bmp'))
         self._size = 0
 
     def set_image(self, src):
 
-        self._img = QtGui.QPixmap(getUrl(f'./image/smiley/{src}.bmp'))
+        self._img = QPixmap(getUrl(f'./image/smiley/{src}.bmp'))
         self._label.setPixmap(self._img.scaled(self._size, self._size))
 
     def _change_size(self, size):
@@ -691,13 +695,13 @@ class HeaderButton(QtWidgets.QPushButton):
         self._label.setPixmap(self._img.scaled(self._size, self._size))
 
 
-class WindowAbout(QtWidgets.QDialog):
+class WindowAbout(QDialog):
 
     def __init__(self):
-        super(WindowAbout, self).__init__(window, QtCore.Qt.Window)
+        super(WindowAbout, self).__init__(window, Qt.Window)
 
-        self.setWindowFlags(QtCore.Qt.Dialog)
-        self.setWindowModality(QtCore.Qt.WindowModal)
+        self.setWindowFlags(Qt.Dialog)
+        self.setWindowModality(Qt.WindowModal)
         self._width = 420
         self._height = 360
 
@@ -707,27 +711,27 @@ class WindowAbout(QtWidgets.QDialog):
         self.setFixedSize(self._width, self._height)
         self.move(settings_game.params['pos_x'] + 20, settings_game.params['pos_y'] + 20)
 
-        actionExit = QtWidgets.QAction(self)
+        actionExit = QAction(self)
         actionExit.setShortcut('Ctrl+Q')
         actionExit.triggered.connect(self.deleteLater)
         self.addAction(actionExit)
 
-        view = QtWebEngineWidgets.QWebEngineView(self)
+        view = QWebEngineView(self)
         view.setGeometry(0, 0, self._width, self._height)
         html = Path(getUrl('./about.html')).read_text(encoding="utf8")
         css = str(Path(getUrl('./about.css')).resolve())
-        view.setHtml(html, baseUrl=QtCore.QUrl.fromLocalFile(css))
+        view.setHtml(html, baseUrl=QUrl.fromLocalFile(css))
 
         self.show()
 
 
-class WindowSettings(QtWidgets.QDialog):
+class WindowSettings(QDialog):
 
     def __init__(self):
-        super(WindowSettings, self).__init__(window, QtCore.Qt.Window)
+        super(WindowSettings, self).__init__(window, Qt.Window)
 
-        self.setWindowFlags(QtCore.Qt.Dialog)
-        self.setWindowModality(QtCore.Qt.WindowModal)
+        self.setWindowFlags(Qt.Dialog)
+        self.setWindowModality(Qt.WindowModal)
 
         self._width = 320
         self._height = 300
@@ -738,28 +742,28 @@ class WindowSettings(QtWidgets.QDialog):
         self.setCursor(cursorDefault)
         self.setStyleSheet('background-color: grey;')
 
-        actionExit = QtWidgets.QAction(self)
+        actionExit = QAction(self)
         actionExit.setShortcut('Ctrl+Q')
         actionExit.triggered.connect(self.deleteLater)
         self.addAction(actionExit)
 
 
-        self._body = QtWidgets.QWidget()
+        self._body = QWidget()
         self._body.setGeometry(0, 0, self._width, 650)
 
-        self._form = QtWidgets.QFormLayout(self._body)
-        self._form.setFormAlignment(QtCore.Qt.AlignHCenter)
-        self._form.setLabelAlignment(QtCore.Qt.AlignLeft)
+        self._form = QFormLayout(self._body)
+        self._form.setFormAlignment(Qt.AlignHCenter)
+        self._form.setLabelAlignment(Qt.AlignLeft)
 
-        self._scroll = QtWidgets.QScrollArea(self)
+        self._scroll = QScrollArea(self)
         self._scroll.setObjectName('window_sett_scroll')
         self._scroll.setStyleSheet('#window_sett_scroll { border: none; }')
-        self._scroll.setAlignment(QtCore.Qt.AlignRight)
+        self._scroll.setAlignment(Qt.AlignRight)
         self._scrollBar = self._scroll.verticalScrollBar()
         self._scrollBar.setFixedHeight(self._height)
         self._scroll.setWidget(self._body)
 
-        self._btnReset = QtWidgets.QPushButton(self)
+        self._btnReset = QPushButton(self)
         self._btnReset.setText('Reset')
         self._btnReset.setCursor(cursorHover)
         self._btnReset.clicked.connect(self._reset_settings)
@@ -807,7 +811,7 @@ class WindowSettings(QtWidgets.QDialog):
         self._inputCheat.set_status(False)
 
 
-class WindowLevel(QtWidgets.QDialog):
+class WindowLevel(QDialog):
 
     def closeEvent(self, event):
 
@@ -816,10 +820,10 @@ class WindowLevel(QtWidgets.QDialog):
         return super(WindowLevel, self).closeEvent(event)
 
     def __init__(self):
-        super(WindowLevel, self).__init__(window, QtCore.Qt.Window)
+        super(WindowLevel, self).__init__(window, Qt.Window)
 
-        self.setWindowFlags(QtCore.Qt.Dialog)
-        self.setWindowModality(QtCore.Qt.WindowModal)
+        self.setWindowFlags(Qt.Dialog)
+        self.setWindowModality(Qt.WindowModal)
         self._width = 320
         self._height = 300
         self._formHeight = 200
@@ -830,19 +834,19 @@ class WindowLevel(QtWidgets.QDialog):
         self.setFixedSize(self._width, self._height)
         self.move(settings_game.params['pos_x'] + 20, settings_game.params['pos_y'] + 20)
 
-        actionExit = QtWidgets.QAction(self)
+        actionExit = QAction(self)
         actionExit.setShortcut('Ctrl+Q')
         actionExit.triggered.connect(self._recovery_level)
         self.addAction(actionExit)
 
-        self._body = QtWidgets.QWidget(self)
+        self._body = QWidget(self)
         self._body.setGeometry(0, 0, self._width, self._height)
-        self._main = QtWidgets.QWidget(self._body)
+        self._main = QWidget(self._body)
         self._main.resize(self._width, self._formHeight)
 
-        self._form = QtWidgets.QFormLayout(self._main)
-        self._form.setFormAlignment(QtCore.Qt.AlignHCenter)
-        self._form.setLabelAlignment(QtCore.Qt.AlignLeft)
+        self._form = QFormLayout(self._main)
+        self._form.setFormAlignment(Qt.AlignHCenter)
+        self._form.setLabelAlignment(Qt.AlignLeft)
 
 
         self._old_level = game.level
@@ -858,7 +862,7 @@ class WindowLevel(QtWidgets.QDialog):
         self._boxRangeH.event_connect(self._change_level)
         self._boxRangeV.event_connect(self._change_level)
 
-        self._btnPlay = QtWidgets.QPushButton()
+        self._btnPlay = QPushButton()
         self._btnPlay.setCursor(cursorHover)
         self._btnPlay.setText('Play')
         self._btnPlay.clicked.connect(self._play)
@@ -869,9 +873,9 @@ class WindowLevel(QtWidgets.QDialog):
         self._form.addRow('Level : ', self._btnPlay)
 
 
-        self._description = QtWidgets.QLabel(self._body)
+        self._description = QLabel(self._body)
         self._description.setGeometry(0, self._formHeight, self._width, 50)
-        self._description.setAlignment(QtCore.Qt.AlignCenter)
+        self._description.setAlignment(Qt.AlignCenter)
         self._description.setText(f'Cells max amount with width({window.size().width()})/height({window.size().height()}).\nInput range can move with helping (←, →, ↑, ↓),\n and mouse scroll.')
 
 
@@ -899,7 +903,7 @@ class WindowLevel(QtWidgets.QDialog):
         self.deleteLater()
 
 
-class BoxRange(QtWidgets.QGroupBox):
+class BoxRange(QGroupBox):
 
     def __init__(self, param, valueMin, valueMax, valueStep, parent=None):
         super(BoxRange, self).__init__(parent)
@@ -911,18 +915,18 @@ class BoxRange(QtWidgets.QGroupBox):
         self._valueMax = valueMax
         value = settings_game.params[self._parametr]
 
-        self._rInput = QtWidgets.QSlider()
-        self._rInput.setOrientation(QtCore.Qt.Horizontal)
+        self._rInput = QSlider()
+        self._rInput.setOrientation(Qt.Horizontal)
         self._rInput.setCursor(cursorHover)
         self._rInput.setRange(self._valueMin, self._valueMax)
         self._rInput.setSingleStep(valueStep)
         self._rInput.setSliderPosition(value)
         self._rInput.valueChanged.connect(self._changeRange)
 
-        self._label = QtWidgets.QLabel()
+        self._label = QLabel()
         self._label.setText(str(value))
 
-        layout = QtWidgets.QHBoxLayout()
+        layout = QHBoxLayout()
         layout.addWidget(self._label)
         layout.addWidget(self._rInput)
         self.setLayout(layout)
@@ -955,21 +959,22 @@ class BoxRange(QtWidgets.QGroupBox):
         self._func = func
         self._is_func = True
 
-class BoxRadio(QtWidgets.QGroupBox):
+
+class BoxRadio(QGroupBox):
 
     def __init__(self, param, parent=None):
         super(BoxRadio, self).__init__(parent)
         self._parametr = param
 
-        self._radioOff = QtWidgets.QRadioButton('OFF')
-        self._radioOn = QtWidgets.QRadioButton('ON')
+        self._radioOff = QRadioButton('OFF')
+        self._radioOn = QRadioButton('ON')
         self._radioOff.setCursor(cursorHover)
         self._radioOn.setCursor(cursorHover)
         self._update_status()
 
         self._radioOn.toggled.connect(self._chengeRadio)
 
-        layout = QtWidgets.QHBoxLayout()
+        layout = QHBoxLayout()
         layout.addWidget(self._radioOff)
         layout.addWidget(self._radioOn)
         self.setLayout(layout)
@@ -1014,30 +1019,30 @@ class Sounds():
             return False
 
     def __init__(self):
-
         self._is_gstreamer = False
+
         if check_gstreamer():
             self._is_gstreamer = True
             self._sounds = {
-                'cell_open': QtMultimedia.QMediaPlayer(),
-                'defeat': QtMultimedia.QMediaPlayer(),
-                'win': QtMultimedia.QMediaPlayer(),
-                'flag_put': QtMultimedia.QMediaPlayer(),
-                'flag_take_off': QtMultimedia.QMediaPlayer()
+                'cell_open': QMediaPlayer(),
+                'defeat': QMediaPlayer(),
+                'win': QMediaPlayer(),
+                'flag_put': QMediaPlayer(),
+                'flag_take_off': QMediaPlayer()
             }
 
-            self._sounds['cell_open'].setMedia(QtMultimedia.QMediaContent(QtCore.QUrl.fromLocalFile(getUrl('./sounds/cell_open.wav'))))
-            self._sounds['defeat'].setMedia(QtMultimedia.QMediaContent(QtCore.QUrl.fromLocalFile(getUrl('./sounds/cell_explode.wav'))))
-            self._sounds['win'].setMedia(QtMultimedia.QMediaContent(QtCore.QUrl.fromLocalFile(getUrl('./sounds/win.wav'))))
-            self._sounds['flag_put'].setMedia(QtMultimedia.QMediaContent(QtCore.QUrl.fromLocalFile(getUrl('./sounds/flag_put.wav'))))
-            self._sounds['flag_take_off'].setMedia(QtMultimedia.QMediaContent(QtCore.QUrl.fromLocalFile(getUrl('./sounds/flag_take_off.wav'))))
+            self._sounds['cell_open'].setMedia(QMediaContent(QUrl.fromLocalFile(getUrl('./sounds/cell_open.wav'))))
+            self._sounds['defeat'].setMedia(QMediaContent(QUrl.fromLocalFile(getUrl('./sounds/cell_explode.wav'))))
+            self._sounds['win'].setMedia(QMediaContent(QUrl.fromLocalFile(getUrl('./sounds/win.wav'))))
+            self._sounds['flag_put'].setMedia(QMediaContent(QUrl.fromLocalFile(getUrl('./sounds/flag_put.wav'))))
+            self._sounds['flag_take_off'].setMedia(QMediaContent(QUrl.fromLocalFile(getUrl('./sounds/flag_take_off.wav'))))
         else:
             self._sounds = {
-                'cell_open': QtMultimedia.QSound(getUrl('./sounds/cell_open.wav')),
-                'defeat': QtMultimedia.QSound(getUrl('./sounds/cell_explode.wav')),
-                'win': QtMultimedia.QSound(getUrl('./sounds/win.wav')),
-                'flag_put': QtMultimedia.QSound(getUrl('./sounds/flag_put.wav')),
-                'flag_take_off': QtMultimedia.QSound(getUrl('./sounds/flag_take_off.wav'))
+                'cell_open': QSound(getUrl('./sounds/cell_open.wav')),
+                'defeat': QSound(getUrl('./sounds/cell_explode.wav')),
+                'win': QSound(getUrl('./sounds/win.wav')),
+                'flag_put': QSound(getUrl('./sounds/flag_put.wav')),
+                'flag_take_off': QSound(getUrl('./sounds/flag_take_off.wav'))
             }
 
     def change_volume(self, value):
@@ -1048,11 +1053,12 @@ class Sounds():
         else:
             return False
 
+
 def make_cursor(url, size=60):
 
-    pixmap = QtGui.QPixmap(url)
+    pixmap = QPixmap(url)
     pixmap = pixmap.scaled(size, size)
-    return QtGui.QCursor(pixmap)
+    return QCursor(pixmap)
 
 def getUrl(url):
 
@@ -1062,10 +1068,11 @@ def check_gstreamer():
 
     return 'gi.repository.Gst' in [modname for _, modname, _ in pkgutil.iter_modules()]
 
+
 if (__name__ == '__main__'):
 
     basedir = os.path.dirname(__file__)
-    app = QtWidgets.QApplication(sys.argv)
+    app = QApplication(sys.argv)
 
     cursorShovel = make_cursor(getUrl('./image/cursor/shovel.bmp'))
     cursorMetalDetector = make_cursor(getUrl('./image/cursor/metalDetector.bmp'))
