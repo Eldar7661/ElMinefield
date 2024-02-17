@@ -1,3 +1,4 @@
+
 html, body {
     width: calc(100vw - 20px);
     margin: 0px;
@@ -9,18 +10,29 @@ html, body {
     align-items: center;
     cursor: url('./image/cursor/default.png'), auto;
 }
+
+@font-face {
+    font-family: 'MuseoSansCyrl';
+    src: url(./fonts/MuseoSansCyrl.otf);
+}
+
 main {
     width: 80%;
-    height: 90%;
+    height: 800px;
     color: white;
+    font-family:'MuseoSansCyrl';
     display: flex;
     flex-direction: column;
-    justify-content: space-around;
+    justify-content: flex-start;
     align-items: center;
-    font-family: "Gill Sans", sans-serif;
 }
 .title {
+    width: inherit;
+    height: 42px;
     font-size: 22px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 .text {
     font-size: 16px;

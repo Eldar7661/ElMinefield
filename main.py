@@ -2,7 +2,7 @@
 
 from PyQt5.QtWidgets import QApplication, QMainWindow, QDialog, QWidget, QGroupBox, QHBoxLayout, QFormLayout, QLabel, QAction, QPushButton, QSlider, QRadioButton, QMessageBox, QScrollArea
 from PyQt5.QtCore import Qt, QUrl, QTimer
-from PyQt5.QtGui import QPixmap, QIcon, QCursor
+from PyQt5.QtGui import QPixmap, QIcon, QCursor, QFontDatabase, QFont
 from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent, QSound
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 
@@ -462,7 +462,6 @@ class Window(QMainWindow):
         self._width = settings_game.params['width']
         self._height = settings_game.params['height']
         self._menuHeight = int(self._menu.size().height())
-
         self.header.setStyleSheet('background-color: grey;')
 
 
@@ -733,7 +732,7 @@ class WindowSettings(QDialog):
         self.setWindowFlags(Qt.Dialog)
         self.setWindowModality(Qt.WindowModal)
 
-        self._width = 320
+        self._width = 340
         self._height = 300
 
         self.setWindowTitle('Settings')
@@ -752,7 +751,8 @@ class WindowSettings(QDialog):
         self._body.setGeometry(0, 0, self._width, 650)
 
         self._form = QFormLayout(self._body)
-        self._form.setFormAlignment(Qt.AlignHCenter)
+        self._form.setFormAlignment(Qt.AlignLeft)
+        self._form.setContentsMargins(15, 15, 0, 0)
         self._form.setLabelAlignment(Qt.AlignLeft)
 
         self._scroll = QScrollArea(self)
@@ -770,7 +770,7 @@ class WindowSettings(QDialog):
         self._btnReset.resize(80, 30)
 
         self._boxRange = BoxRange('sound_valume', 0, 100, 1)
-        self._boxRange.setFixedWidth(122)
+        self._boxRange.setFixedWidth(130)
         self._boxRange.event_connect(sound.change_volume)
 
 
@@ -824,7 +824,7 @@ class WindowLevel(QDialog):
 
         self.setWindowFlags(Qt.Dialog)
         self.setWindowModality(Qt.WindowModal)
-        self._width = 320
+        self._width = 340
         self._height = 300
         self._formHeight = 200
 
@@ -874,9 +874,13 @@ class WindowLevel(QDialog):
 
 
         self._description = QLabel(self._body)
-        self._description.setGeometry(0, self._formHeight, self._width, 50)
-        self._description.setAlignment(Qt.AlignCenter)
-        self._description.setText(f'Cells max amount with width({window.size().width()})/height({window.size().height()}).\nInput range can move with helping (←, →, ↑, ↓),\n and mouse scroll.')
+        self._description.setWordWrap(True)
+        self._description.setAlignment(Qt.AlignTop)
+        self._description.setIndent(10)
+        descriptionAlignH = int(self._width * 0.1)
+        descriptionWidth = int(self._width - (descriptionAlignH * 2))
+        self._description.setGeometry(descriptionAlignH, self._formHeight, descriptionWidth, self._height - self._formHeight)
+        self._description.setText(f'Cells max amount with width({window.size().width()})/height({window.size().height()}). Input range can move with helping (←, →, ↑, ↓), and mouse scroll.')
 
 
         self.show()
@@ -1073,6 +1077,8 @@ if (__name__ == '__main__'):
 
     basedir = os.path.dirname(__file__)
     app = QApplication(sys.argv)
+    QFontDatabase.addApplicationFont('./fonts/TLHeader.otf')
+    app.setFont(QFont('TLHeader', 12))
 
     cursorShovel = make_cursor(getUrl('./image/cursor/shovel.bmp'))
     cursorMetalDetector = make_cursor(getUrl('./image/cursor/metalDetector.bmp'))
