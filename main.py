@@ -477,8 +477,8 @@ class Window(QMainWindow):
         self._headerBoardHeight = 0
 
 
-        self.title = 'Minesweeper';
-        self.setWindowIcon(QIcon(getUrl('./image/icon_minesweeper.ico')))
+        self.title = 'ElMinefield';
+        self.setWindowIcon(QIcon(getUrl('./image/ElMinefield.svg')))
         self.setWindowTitle(self.title)
         self.setGeometry(posX, posY, self._width, self._height)
         self.setCursor(cursorDefault)
