@@ -3,7 +3,7 @@
 from PyQt5.QtWidgets import QApplication, QMainWindow, QDialog, QWidget, QGroupBox, QHBoxLayout, QFormLayout, QLabel, QAction, QPushButton, QSlider, QRadioButton, QMessageBox, QScrollArea
 from PyQt5.QtCore import Qt, QUrl, QTimer
 from PyQt5.QtGui import QPixmap, QIcon, QCursor, QFontDatabase, QFont
-from PyQt5.QtMultimedia import QSoundEffect
+from PyQt5.QtMultimedia import QSoundEffect, QSound
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 
 from random import randint
@@ -464,9 +464,9 @@ class Window(QMainWindow):
         self._width = settings_game.params['width']
         self._height = settings_game.params['height']
         self._menuHeight = int(self._menu.size().height())
-        self.header.setStyleSheet('background-color: grey;')
+        self.header.setStyleSheet('background-color: #A9A9A9;')
         self.setObjectName('window')
-        self.setStyleSheet('#window { background: #404040; }')
+        self.setStyleSheet(f'#window {{ background: {COLOR_BACKGROUND}; }}')
 
         self._headerHeight = 0
 
@@ -742,7 +742,7 @@ class WindowSettings(QDialog):
         self.setFixedSize(self._width, self._height)
         self.move(settings_game.params['pos_x'] + 20, settings_game.params['pos_y'] + 20)
         self.setCursor(cursorDefault)
-        self.setStyleSheet(f'background-color: {COLOR_BACKGROUND};')
+        self.setStyleSheet(f'background-color: {COLOR_BACKGROUND}; color: white;')
 
         actionExit = QAction(self)
         actionExit.setShortcut('Ctrl+Q')
@@ -769,8 +769,8 @@ class WindowSettings(QDialog):
         self._btnReset = QPushButton(self)
         self._btnReset.setText('Reset')
         self._btnReset.setCursor(cursorHover)
+        self._btnReset.setFixedSize(130, 40)
         self._btnReset.clicked.connect(self._reset_settings)
-        self._btnReset.resize(80, 30)
 
         self._boxRange = BoxRange('sound_valume', 0, 100, 1)
         self._boxRange.event_connect(sound.update_volume)
@@ -832,7 +832,7 @@ class WindowLevel(QDialog):
 
         self.setWindowTitle('New Level')
         self.setCursor(cursorDefault)
-        self.setStyleSheet(f'background-color: {COLOR_BACKGROUND};')
+        self.setStyleSheet(f'background-color: {COLOR_BACKGROUND}; color: white;')
         self.setFixedSize(self._width, self._height)
         self.move(settings_game.params['pos_x'] + 20, settings_game.params['pos_y'] + 20)
 
@@ -868,6 +868,7 @@ class WindowLevel(QDialog):
         self._btnPlay.setCursor(cursorHover)
         self._btnPlay.setText('Play')
         self._btnPlay.clicked.connect(self._play)
+        self._btnPlay.setFixedSize(130, 40)
 
         self._form.addRow('Amount Cells in H : ', self._boxRangeH)
         self._form.addRow('Amount Cells in V : ', self._boxRangeV)
@@ -1023,21 +1024,30 @@ class Sounds():
 
     def __init__(self):
 
-        self._sounds = {
-            'cell_open': QSoundEffect(),
-            'defeat': QSoundEffect(),
-            'win': QSoundEffect(),
-            'flag_put': QSoundEffect(),
-            'flag_take_off': QSoundEffect()
-        }
+        if False:
+            self._sounds = {
+                'cell_open': QSound(getUrl('./sounds/cell_open.wav')),
+                'defeat': QSound(getUrl('./sounds/cell_explode.wav')),
+                'win': QSound(getUrl('./sounds/win.wav')),
+                'flag_put': QSound(getUrl('./sounds/flag_put.wav')),
+                'flag_take_off': QSound(getUrl('./sounds/flag_take_off.wav')),
+            }
+        else:
+            self._sounds = {
+                'cell_open': QSoundEffect(),
+                'defeat': QSoundEffect(),
+                'win': QSoundEffect(),
+                'flag_put': QSoundEffect(),
+                'flag_take_off': QSoundEffect()
+            }
 
-        self._sounds['cell_open'].setSource(QUrl.fromLocalFile(getUrl('./sounds/cell_open.wav')))
-        self._sounds['defeat'].setSource(QUrl.fromLocalFile(getUrl('./sounds/cell_explode.wav')))
-        self._sounds['win'].setSource(QUrl.fromLocalFile(getUrl('./sounds/win.wav')))
-        self._sounds['flag_put'].setSource(QUrl.fromLocalFile(getUrl('./sounds/flag_put.wav')))
-        self._sounds['flag_take_off'].setSource(QUrl.fromLocalFile(getUrl('./sounds/flag_take_off.wav')))
+            self._sounds['cell_open'].setSource(QUrl.fromLocalFile(getUrl('./sounds/cell_open.wav')))
+            self._sounds['defeat'].setSource(QUrl.fromLocalFile(getUrl('./sounds/cell_explode.wav')))
+            self._sounds['win'].setSource(QUrl.fromLocalFile(getUrl('./sounds/win.wav')))
+            self._sounds['flag_put'].setSource(QUrl.fromLocalFile(getUrl('./sounds/flag_put.wav')))
+            self._sounds['flag_take_off'].setSource(QUrl.fromLocalFile(getUrl('./sounds/flag_take_off.wav')))
 
-        self.update_volume()
+            self.update_volume()
 
     def play(self, name):
 
@@ -1065,7 +1075,7 @@ def getUrl(url):
     return os.path.join(basedir, url)
 
 
-COLOR_BACKGROUND = '#404040'
+COLOR_BACKGROUND = '#606060'
 
 if (__name__ == '__main__'):
 
