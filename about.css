@@ -42,6 +42,9 @@ a {
     font-weight: bold;
     cursor: url('./image/cursor/link.png'), auto;
 }
+b {
+    color: red;
+}
 ::-webkit-scrollbar {
     width: 5px;
 }

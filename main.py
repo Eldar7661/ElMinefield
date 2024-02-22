@@ -8,7 +8,11 @@ from PyQt5.QtWebEngineWidgets import QWebEngineView
 
 from random import randint
 from pathlib import Path
-import os, sys, json, pkgutil
+import os, sys, json, gi
+
+gi.require_version('Gst', '1.0')
+from gi.repository import Gst
+
 
 
 class Cell(QPushButton):
@@ -95,7 +99,6 @@ class Cell(QPushButton):
         if self._opened:
             return False
 
-        sound.play('cell_open')
         self._opened = True
         self.setCursor(cursorMetalDetector)
 
@@ -103,10 +106,12 @@ class Cell(QPushButton):
             game.set_amount_marked(False)
 
         if self._role == 'empty':
+            sound.play('cell_open')
             self._set_image(self._amountBombAround)
             if self._amountBombAround == 0:
                 game.opening_around_cells(self)
         elif game.game:
+            sound.play('defeat')
             blackout = QWidget(self)
             blackout.setStyleSheet('background: rgba(255,0,0,0.4);')
             blackout.resize(self._size, self._size)
@@ -126,6 +131,7 @@ class Cell(QPushButton):
 class Game:
 
     def __init__(self):
+
         self._cellMinSize = 35
         self._cellMaxAmountX = 0
         self._cellMaxAmountY = 0
@@ -162,7 +168,6 @@ class Game:
 
         if scenario == 'defeat':
             window.headerButton.set_image('defeat')
-            sound.play('defeat')
             for bomb in self._bombs:
                 bomb.explode()
         else:
@@ -463,7 +468,9 @@ class Window(QMainWindow):
         self._height = settings_game.params['height']
         self._menuHeight = int(self._menu.size().height())
         self.header.setStyleSheet('background-color: grey;')
-
+        # self.setObjectName('window')
+        # self.setStyleSheet('#window { background: #404040; }')
+        self.setStyleSheet('background: #404040;')
 
         self._headerHeight = 0
 
@@ -732,8 +739,8 @@ class WindowSettings(QDialog):
         self.setWindowFlags(Qt.Dialog)
         self.setWindowModality(Qt.WindowModal)
 
-        self._width = 340
-        self._height = 300
+        self._width = 360
+        self._height = 320
 
         self.setWindowTitle('Settings')
         self.setFixedSize(self._width, self._height)
@@ -770,7 +777,6 @@ class WindowSettings(QDialog):
         self._btnReset.resize(80, 30)
 
         self._boxRange = BoxRange('sound_valume', 0, 100, 1)
-        self._boxRange.setFixedWidth(130)
         self._boxRange.event_connect(sound.change_volume)
 
 
@@ -824,8 +830,8 @@ class WindowLevel(QDialog):
 
         self.setWindowFlags(Qt.Dialog)
         self.setWindowModality(Qt.WindowModal)
-        self._width = 340
-        self._height = 300
+        self._width = 360
+        self._height = 320
         self._formHeight = 200
 
         self.setWindowTitle('New Level')
@@ -911,6 +917,8 @@ class BoxRange(QGroupBox):
 
     def __init__(self, param, valueMin, valueMax, valueStep, parent=None):
         super(BoxRange, self).__init__(parent)
+
+        self.setFixedWidth(130)
         self._parametr = param
         self._is_func = False
         self._func = None
@@ -968,6 +976,8 @@ class BoxRadio(QGroupBox):
 
     def __init__(self, param, parent=None):
         super(BoxRadio, self).__init__(parent)
+
+        self.setFixedWidth(130)
         self._parametr = param
 
         self._radioOff = QRadioButton('OFF')
@@ -1023,9 +1033,10 @@ class Sounds():
             return False
 
     def __init__(self):
+
         self._is_gstreamer = False
 
-        if check_gstreamer():
+        if check_wav_support():
             self._is_gstreamer = True
             self._sounds = {
                 'cell_open': QMediaPlayer(),
@@ -1040,6 +1051,11 @@ class Sounds():
             self._sounds['win'].setMedia(QMediaContent(QUrl.fromLocalFile(getUrl('./sounds/win.wav'))))
             self._sounds['flag_put'].setMedia(QMediaContent(QUrl.fromLocalFile(getUrl('./sounds/flag_put.wav'))))
             self._sounds['flag_take_off'].setMedia(QMediaContent(QUrl.fromLocalFile(getUrl('./sounds/flag_take_off.wav'))))
+
+            valume = settings_game.params['sound_valume']
+            for key in self._sounds:
+                self._sounds[key].setVolume(valume)
+
         else:
             self._sounds = {
                 'cell_open': QSound(getUrl('./sounds/cell_open.wav')),
@@ -1053,9 +1069,10 @@ class Sounds():
 
         if self._is_gstreamer:
             for key in self._sounds:
-                self._sounds[key].setVolume(value * 0.01)
+                self._sounds[key].setVolume(value)
         else:
             return False
+
 
 
 def make_cursor(url, size=60):
@@ -1068,17 +1085,36 @@ def getUrl(url):
 
     return os.path.join(basedir, url)
 
-def check_gstreamer():
+def check_wav_support():
+    # Инициализация GStreamer
+    Gst.init(None)
 
-    return 'gi.repository.Gst' in [modname for _, modname, _ in pkgutil.iter_modules()]
+    # Создание элемента, который может декодировать WAV
+    wav_decoder = Gst.ElementFactory.make("wavparse", "wav_decoder")
+
+    # Проверка, был ли элемент успешно создан
+    if not wav_decoder:
+        print("Ошибка: Не удалось создать элемент для декодирования WAV.")
+        return False
+
+    # Проверка, поддерживает ли GStreamer декодирование WAV
+    supported = wav_decoder.get_static_pad("sink").query_caps().to_string().find("audio/x-wav") != -1
+
+    # Освобождение ресурсов
+    wav_decoder.set_state(Gst.State.NULL)
+
+    return supported
+
 
 
 if (__name__ == '__main__'):
 
     basedir = os.path.dirname(__file__)
     app = QApplication(sys.argv)
-    QFontDatabase.addApplicationFont('./fonts/TLHeader.otf')
-    app.setFont(QFont('TLHeader', 12))
+
+    fontId = QFontDatabase.addApplicationFont('fonts/TLHeader.otf')
+    fontFamily = QFontDatabase.applicationFontFamilies(fontId)[0]
+    app.setFont(QFont(fontFamily, 12))
 
     cursorShovel = make_cursor(getUrl('./image/cursor/shovel.bmp'))
     cursorMetalDetector = make_cursor(getUrl('./image/cursor/metalDetector.bmp'))
@@ -1095,3 +1131,30 @@ if (__name__ == '__main__'):
     game.restart()
 
     sys.exit(app.exec_())
+
+
+##################################################################################################################
+##                                                                                                              ##
+##       Меня зовут Ali я сделал данную игру.                                                                   ##
+##   Я только начинаю разбиратся в сфере програмировании, поэтому игра вышла такой.                             ##
+##   Наверника многие части логики игры можно было реализовать эффективней,                                     ##
+##   как и саму логику игры. Если вам будет что мне сказать пожалуста напишите мне в Telegram.                  ##
+##                                                                                                              ##
+##   !!!! Я не смотрел как сделать игру Minesweeper, так же не использовал конструктор "Qt Designer"            ##
+##   Всё продумавал и писал сам.                                                                                ##
+##                                                                                                              ##
+##   Эта не первая моя реализация Minesweeper. Первую я делал на библиотеке "Pygame",                           ##
+##   её я не доделал, но играть можно было в полном режиме. Она в закрытом репозитории.                         ##
+##                                                                                                              ##
+##   К стате забыл сказать я хотел этот файл разбить по классам на несколько.                                   ##
+##   Но сталкнулся с проблемой что в отдельном модуле мне нужны переменые из другого модуля.                    ##
+##   Всё это можно было решить, но мне не понравилось как в Python это реализовано.                             ##
+##   Возможно тут можно сделать так чтобы модуль не ругался на отсуствие переменых.                             ##
+##   Или я не правильно сделал взаимодействие обьектов, что их нельзя оторвать от основного кода.               ##
+##                                                                                                              ##
+##   Мой Telegram:  https://t.me/eldar7661                                                                      ##
+##   Мой gmail:     eldar7661@gmail.com                                                                         ##
+##   Мой GitHub:    https://github.com/Eldar7661                                                                ##
+##                                                                                                              ##
+##                                                                                                              ##
+##################################################################################################################
