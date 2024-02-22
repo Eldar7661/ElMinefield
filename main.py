@@ -3,15 +3,12 @@
 from PyQt5.QtWidgets import QApplication, QMainWindow, QDialog, QWidget, QGroupBox, QHBoxLayout, QFormLayout, QLabel, QAction, QPushButton, QSlider, QRadioButton, QMessageBox, QScrollArea
 from PyQt5.QtCore import Qt, QUrl, QTimer
 from PyQt5.QtGui import QPixmap, QIcon, QCursor, QFontDatabase, QFont
-from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent, QSound
+from PyQt5.QtMultimedia import QSoundEffect
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 
 from random import randint
 from pathlib import Path
-import os, sys, json, gi
-
-gi.require_version('Gst', '1.0')
-from gi.repository import Gst
+import os, sys, json
 
 
 
@@ -468,9 +465,8 @@ class Window(QMainWindow):
         self._height = settings_game.params['height']
         self._menuHeight = int(self._menu.size().height())
         self.header.setStyleSheet('background-color: grey;')
-        # self.setObjectName('window')
-        # self.setStyleSheet('#window { background: #404040; }')
-        self.setStyleSheet('background: #404040;')
+        self.setObjectName('window')
+        self.setStyleSheet('#window { background: #404040; }')
 
         self._headerHeight = 0
 
@@ -713,7 +709,7 @@ class WindowAbout(QDialog):
 
         self.setWindowTitle('About the project')
         self.setCursor(cursorDefault)
-        self.setStyleSheet('background-color: grey;')
+        self.setStyleSheet(f'background-color: {COLOR_BACKGROUND};')
         self.setFixedSize(self._width, self._height)
         self.move(settings_game.params['pos_x'] + 20, settings_game.params['pos_y'] + 20)
 
@@ -746,7 +742,7 @@ class WindowSettings(QDialog):
         self.setFixedSize(self._width, self._height)
         self.move(settings_game.params['pos_x'] + 20, settings_game.params['pos_y'] + 20)
         self.setCursor(cursorDefault)
-        self.setStyleSheet('background-color: grey;')
+        self.setStyleSheet(f'background-color: {COLOR_BACKGROUND};')
 
         actionExit = QAction(self)
         actionExit.setShortcut('Ctrl+Q')
@@ -777,7 +773,7 @@ class WindowSettings(QDialog):
         self._btnReset.resize(80, 30)
 
         self._boxRange = BoxRange('sound_valume', 0, 100, 1)
-        self._boxRange.event_connect(sound.change_volume)
+        self._boxRange.event_connect(sound.update_volume)
 
 
         self._inputWindPos = self._formAddRadio('Save last window\n position', 'mode_save_wind_pos')
@@ -836,7 +832,7 @@ class WindowLevel(QDialog):
 
         self.setWindowTitle('New Level')
         self.setCursor(cursorDefault)
-        self.setStyleSheet('background-color: grey;')
+        self.setStyleSheet(f'background-color: {COLOR_BACKGROUND};')
         self.setFixedSize(self._width, self._height)
         self.move(settings_game.params['pos_x'] + 20, settings_game.params['pos_y'] + 20)
 
@@ -1025,6 +1021,24 @@ class Settings():
 
 class Sounds():
 
+    def __init__(self):
+
+        self._sounds = {
+            'cell_open': QSoundEffect(),
+            'defeat': QSoundEffect(),
+            'win': QSoundEffect(),
+            'flag_put': QSoundEffect(),
+            'flag_take_off': QSoundEffect()
+        }
+
+        self._sounds['cell_open'].setSource(QUrl.fromLocalFile(getUrl('./sounds/cell_open.wav')))
+        self._sounds['defeat'].setSource(QUrl.fromLocalFile(getUrl('./sounds/cell_explode.wav')))
+        self._sounds['win'].setSource(QUrl.fromLocalFile(getUrl('./sounds/win.wav')))
+        self._sounds['flag_put'].setSource(QUrl.fromLocalFile(getUrl('./sounds/flag_put.wav')))
+        self._sounds['flag_take_off'].setSource(QUrl.fromLocalFile(getUrl('./sounds/flag_take_off.wav')))
+
+        self.update_volume()
+
     def play(self, name):
 
         if settings_game.params['mode_sound'] and settings_game.params[f'sound_{name}']:
@@ -1032,46 +1046,11 @@ class Sounds():
         else:
             return False
 
-    def __init__(self):
+    def update_volume(self, value=None):
 
-        self._is_gstreamer = False
-
-        if check_wav_support():
-            self._is_gstreamer = True
-            self._sounds = {
-                'cell_open': QMediaPlayer(),
-                'defeat': QMediaPlayer(),
-                'win': QMediaPlayer(),
-                'flag_put': QMediaPlayer(),
-                'flag_take_off': QMediaPlayer()
-            }
-
-            self._sounds['cell_open'].setMedia(QMediaContent(QUrl.fromLocalFile(getUrl('./sounds/cell_open.wav'))))
-            self._sounds['defeat'].setMedia(QMediaContent(QUrl.fromLocalFile(getUrl('./sounds/cell_explode.wav'))))
-            self._sounds['win'].setMedia(QMediaContent(QUrl.fromLocalFile(getUrl('./sounds/win.wav'))))
-            self._sounds['flag_put'].setMedia(QMediaContent(QUrl.fromLocalFile(getUrl('./sounds/flag_put.wav'))))
-            self._sounds['flag_take_off'].setMedia(QMediaContent(QUrl.fromLocalFile(getUrl('./sounds/flag_take_off.wav'))))
-
-            valume = settings_game.params['sound_valume']
-            for key in self._sounds:
-                self._sounds[key].setVolume(valume)
-
-        else:
-            self._sounds = {
-                'cell_open': QSound(getUrl('./sounds/cell_open.wav')),
-                'defeat': QSound(getUrl('./sounds/cell_explode.wav')),
-                'win': QSound(getUrl('./sounds/win.wav')),
-                'flag_put': QSound(getUrl('./sounds/flag_put.wav')),
-                'flag_take_off': QSound(getUrl('./sounds/flag_take_off.wav'))
-            }
-
-    def change_volume(self, value):
-
-        if self._is_gstreamer:
-            for key in self._sounds:
-                self._sounds[key].setVolume(value)
-        else:
-            return False
+        volume = settings_game.params['sound_valume'] / 100
+        for key in self._sounds:
+            self._sounds[key].setVolume(volume)
 
 
 
@@ -1085,27 +1064,8 @@ def getUrl(url):
 
     return os.path.join(basedir, url)
 
-def check_wav_support():
-    # Инициализация GStreamer
-    Gst.init(None)
 
-    # Создание элемента, который может декодировать WAV
-    wav_decoder = Gst.ElementFactory.make("wavparse", "wav_decoder")
-
-    # Проверка, был ли элемент успешно создан
-    if not wav_decoder:
-        print("Ошибка: Не удалось создать элемент для декодирования WAV.")
-        return False
-
-    # Проверка, поддерживает ли GStreamer декодирование WAV
-    supported = wav_decoder.get_static_pad("sink").query_caps().to_string().find("audio/x-wav") != -1
-
-    # Освобождение ресурсов
-    wav_decoder.set_state(Gst.State.NULL)
-
-    return supported
-
-
+COLOR_BACKGROUND = '#404040'
 
 if (__name__ == '__main__'):
 
