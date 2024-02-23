@@ -47,7 +47,13 @@ class Cell(QPushButton):
 
     def _set_mark(self):
 
-        if self._markedFlag:
+        if self._markedFlag and not settings_game.params['mode_auxiliary_marking']:
+            self._markedFlag = False
+            game.set_amount_marked(False)
+            sound.play('flag_take_off')
+            self._set_image(11)
+
+        elif self._markedFlag:
             self._markedFlag = False
             self._markedSupposed = True
             game.set_amount_marked(False)
@@ -788,6 +794,7 @@ class WindowSettings(QDialog):
         self._inputWindConfirm = self._formAddRadio('Confirm closed\n window', 'mode_confirm_close_window')
         self._inputMarkEndls = self._formAddRadio('Endless marking ', 'mode_endless_marking')
         self._inputMarkInver= self._formAddRadio('Inversion marking', 'mode_inversion_marking')
+        self._inputMarkAuxil= self._formAddRadio('Auxiliary mark', 'mode_auxiliary_marking')
         self._inputSound = self._formAddRadio('Sound', 'mode_sound')
         self._form.addRow('Sound volume : ', self._boxRange)
         self._inputSoundClass = self._formAddRadio('QSound /\nQSoundEffect', 'mode_sound_class', 'QS', 'QSE')
@@ -816,6 +823,7 @@ class WindowSettings(QDialog):
         self._inputWindConfirm.set_status(False)
         self._inputMarkEndls.set_status(True)
         self._inputMarkInver.set_status(False)
+        self._inputMarkAuxil.set_status(False)
         self._inputSound.set_status(True)
         self._boxRange.set_value(100)
         self._inputSoundClass.set_status(True)
