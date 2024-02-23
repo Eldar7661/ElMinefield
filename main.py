@@ -1,6 +1,10 @@
 # from PyQt5 import QtWidgets, QtGui, QtCore, QtWebEngineWidgets, QtMultimedia
 
-from PyQt5.QtWidgets import QApplication, QMainWindow, QDialog, QWidget, QGroupBox, QHBoxLayout, QFormLayout, QLabel, QAction, QPushButton, QSlider, QRadioButton, QMessageBox, QScrollArea
+from PyQt5.QtWidgets import QApplication, QMainWindow, QDialog, QMessageBox
+from PyQt5.QtWidgets import QWidget, QGroupBox, QHBoxLayout, QFormLayout
+from PyQt5.QtWidgets import QLabel, QPushButton, QSlider, QRadioButton
+from PyQt5.QtWidgets import QAction, QScrollArea
+
 from PyQt5.QtCore import Qt, QUrl, QTimer
 from PyQt5.QtGui import QPixmap, QIcon, QCursor, QFontDatabase, QFont
 from PyQt5.QtMultimedia import QSoundEffect, QSound
@@ -21,7 +25,7 @@ class Cell(QPushButton):
 
         if not self._opened and game.game:
             if QMouseEvent.button() == Qt.LeftButton:
-                self.opening()
+                self.opening('mouse')
             elif QMouseEvent.button() == Qt.RightButton:
                 self._set_mark()
 
@@ -91,7 +95,7 @@ class Cell(QPushButton):
         self.show()
         self._image_adjustment()
 
-    def opening(self):
+    def opening(self, this='game'):
 
         if self._opened:
             return False
@@ -103,7 +107,8 @@ class Cell(QPushButton):
             game.set_amount_marked(False)
 
         if self._role == 'empty':
-            sound.play('cell_open')
+            if this == 'mouse':
+                sound.play('cell_open')
             self._set_image(self._amountBombAround)
             if self._amountBombAround == 0:
                 game.opening_around_cells(self)
@@ -725,8 +730,7 @@ class WindowAbout(QDialog):
         view = QWebEngineView(self)
         view.setGeometry(0, 0, self._width, self._height)
         html = Path(getUrl('./web/about.html')).read_text(encoding="utf8")
-        css = str(Path(getUrl('./web/main.css')).resolve())
-        view.setHtml(html, baseUrl=QUrl.fromLocalFile(css))
+        view.setHtml(html, baseUrl=QUrl.fromLocalFile(getUrl('./web/main.css', 'absolute')))
 
         self.show()
 
@@ -786,6 +790,7 @@ class WindowSettings(QDialog):
         self._inputMarkInver= self._formAddRadio('Inversion marking', 'mode_inversion_marking')
         self._inputSound = self._formAddRadio('Sound', 'mode_sound')
         self._form.addRow('Sound volume : ', self._boxRange)
+        self._inputSoundClass = self._formAddRadio('QSound /\nQSoundEffect', 'mode_sound_class', 'QS', 'QSE')
         self._inputSoundCellOpen = self._formAddRadio('Sound cell open', 'sound_cell_open')
         self._inputSoundDefeat = self._formAddRadio('Sound defeat', 'sound_defeat')
         self._inputSoundWIn = self._formAddRadio('Sound win', 'sound_win')
@@ -794,11 +799,13 @@ class WindowSettings(QDialog):
         self._inputCheat = self._formAddRadio('Mode cheat', 'mode_cheat')
         self._form.addRow('Settings : ', self._btnReset)
 
+        self._inputSoundClass.event_connect(sound.change_class)
+
         self.show()
 
-    def _formAddRadio(self, title, param):
+    def _formAddRadio(self, title, param, off='OFF', on='ON'):
 
-        radio = BoxRadio(param)
+        radio = BoxRadio(param, off, on)
         self._form.addRow(f'{title} : ', radio)
 
         return radio
@@ -811,6 +818,7 @@ class WindowSettings(QDialog):
         self._inputMarkInver.set_status(False)
         self._inputSound.set_status(True)
         self._boxRange.set_value(100)
+        self._inputSoundClass.set_status(True)
         self._inputSoundCellOpen.set_status(True)
         self._inputSoundDefeat.set_status(True)
         self._inputSoundWIn.set_status(True)
@@ -977,14 +985,16 @@ class BoxRange(QGroupBox):
 
 class BoxRadio(QGroupBox):
 
-    def __init__(self, param, parent=None):
+    def __init__(self, param, off, on, parent=None):
         super(BoxRadio, self).__init__(parent)
 
         self.setFixedWidth(130)
         self._parametr = param
+        self._is_func = False
+        self._func = None
 
-        self._radioOff = QRadioButton('OFF')
-        self._radioOn = QRadioButton('ON')
+        self._radioOff = QRadioButton(off)
+        self._radioOn = QRadioButton(on)
         self._radioOff.setCursor(cursorHover)
         self._radioOn.setCursor(cursorHover)
         self._update_status()
@@ -999,6 +1009,8 @@ class BoxRadio(QGroupBox):
     def _chengeRadio(self, status):
 
         settings_game.params[self._parametr] = status
+        if self._is_func:
+            self._func(status)
 
     def set_status(self, status):
 
@@ -1009,6 +1021,11 @@ class BoxRadio(QGroupBox):
 
         self._radioOff.setChecked(not settings_game.params[self._parametr])
         self._radioOn.setChecked(settings_game.params[self._parametr])
+
+    def event_connect(self, func):
+
+        self._func = func
+        self._is_func = True
 
 
 class Settings():
@@ -1030,9 +1047,11 @@ class Sounds():
 
     def __init__(self):
 
-        self._mode = True
+        self._create_sound()
 
-        if self._mode:
+    def _create_sound(self):
+
+        if settings_game.params['mode_sound_class']:
             self._sounds = {
                 'cell_open': QSoundEffect(),
                 'defeat': QSoundEffect(),
@@ -1059,17 +1078,21 @@ class Sounds():
 
     def play(self, name):
 
-        if self._mode:
-            if settings_game.params['mode_sound'] and settings_game.params[f'sound_{name}']:
-                return self._sounds[name].play()
-            else:
-                return False
+        if settings_game.params['mode_sound'] and settings_game.params[f'sound_{name}']:
+            return self._sounds[name].play()
+        else:
+            return False
 
     def update_volume(self, value=None):
 
-        volume = settings_game.params['sound_valume'] / 100
-        for key in self._sounds:
-            self._sounds[key].setVolume(volume)
+        if settings_game.params['mode_sound_class']:
+            volume = settings_game.params['sound_valume'] / 100
+            for key in self._sounds:
+                self._sounds[key].setVolume(volume)
+
+    def change_class(self, value):
+
+        self._create_sound()
 
 
 
@@ -1079,19 +1102,27 @@ def make_cursor(url, size=60):
     pixmap = pixmap.scaled(size, size)
     return QCursor(pixmap)
 
-def getUrl(url):
+def getUrl(url, mode='relative'):
 
-    return os.path.join(directory, url)
+    # url      - Относительный путь относительно файла скрипта
+    # relative - Относительный путь, относительно консоли запуска скрипта
+    # absolute - Абсолютный путь
+    urlA = os.path.join(BASE_DIR, url)
+    if mode == 'relative':
+        return urlA
+    elif mode == 'absolute':
+        return str(Path(urlA).resolve())
 
 
-COLOR_BACKGROUND = '#606060'
 
 if (__name__ == '__main__'):
 
-    directory = os.path.dirname(sys.argv[0])
+    COLOR_BACKGROUND = '#606060'
+    BASE_DIR = os.path.dirname(sys.argv[0])
+
     app = QApplication(sys.argv)
 
-    fontId = QFontDatabase.addApplicationFont(getUrl('fonts/TLHeader.otf'))
+    fontId = QFontDatabase.addApplicationFont(getUrl('./fonts/TLHeader.otf'))
     fontFamily = QFontDatabase.applicationFontFamilies(fontId)[0]
     app.setFont(QFont(fontFamily, 12))
 
