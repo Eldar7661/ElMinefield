@@ -621,6 +621,10 @@ class Window(QMainWindow):
 
     def _window_exit(self):
 
+        if not settings_game.params['mode_confirm_close_window']:
+            settings_game.save()
+            return True
+
         title = 'Confirmation'
         text = 'close the application ?'
         yes = QMessageBox.Yes
@@ -751,7 +755,7 @@ class WindowSettings(QDialog):
 
 
         self._body = QWidget()
-        self._body.setGeometry(0, 0, self._width, 650)
+        self._body.setGeometry(0, 0, self._width, 800)
 
         self._form = QFormLayout(self._body)
         self._form.setFormAlignment(Qt.AlignLeft)
@@ -777,6 +781,7 @@ class WindowSettings(QDialog):
 
 
         self._inputWindPos = self._formAddRadio('Save last window\n position', 'mode_save_wind_pos')
+        self._inputWindConfirm = self._formAddRadio('Confirm closed\n window', 'mode_confirm_close_window')
         self._inputMarkEndls = self._formAddRadio('Endless marking ', 'mode_endless_marking')
         self._inputMarkInver= self._formAddRadio('Inversion marking', 'mode_inversion_marking')
         self._inputSound = self._formAddRadio('Sound', 'mode_sound')
@@ -801,6 +806,7 @@ class WindowSettings(QDialog):
     def _reset_settings(self):
 
         self._inputWindPos.set_status(True)
+        self._inputWindConfirm.set_status(False)
         self._inputMarkEndls.set_status(True)
         self._inputMarkInver.set_status(False)
         self._inputSound.set_status(True)
@@ -1024,15 +1030,9 @@ class Sounds():
 
     def __init__(self):
 
-        if False:
-            self._sounds = {
-                'cell_open': QSound(getUrl('./sounds/cell_open.wav')),
-                'defeat': QSound(getUrl('./sounds/cell_explode.wav')),
-                'win': QSound(getUrl('./sounds/win.wav')),
-                'flag_put': QSound(getUrl('./sounds/flag_put.wav')),
-                'flag_take_off': QSound(getUrl('./sounds/flag_take_off.wav')),
-            }
-        else:
+        self._mode = True
+
+        if self._mode:
             self._sounds = {
                 'cell_open': QSoundEffect(),
                 'defeat': QSoundEffect(),
@@ -1048,13 +1048,22 @@ class Sounds():
             self._sounds['flag_take_off'].setSource(QUrl.fromLocalFile(getUrl('./sounds/flag_take_off.wav')))
 
             self.update_volume()
+        else:
+            self._sounds = {
+                'cell_open': QSound(getUrl('./sounds/cell_open.wav')),
+                'defeat': QSound(getUrl('./sounds/cell_explode.wav')),
+                'win': QSound(getUrl('./sounds/win.wav')),
+                'flag_put': QSound(getUrl('./sounds/flag_put.wav')),
+                'flag_take_off': QSound(getUrl('./sounds/flag_take_off.wav')),
+            }
 
     def play(self, name):
 
-        if settings_game.params['mode_sound'] and settings_game.params[f'sound_{name}']:
-            return self._sounds[name].play()
-        else:
-            return False
+        if self._mode:
+            if settings_game.params['mode_sound'] and settings_game.params[f'sound_{name}']:
+                return self._sounds[name].play()
+            else:
+                return False
 
     def update_volume(self, value=None):
 
