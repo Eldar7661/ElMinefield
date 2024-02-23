@@ -724,8 +724,8 @@ class WindowAbout(QDialog):
 
         view = QWebEngineView(self)
         view.setGeometry(0, 0, self._width, self._height)
-        html = Path(getUrl('./about.html')).read_text(encoding="utf8")
-        css = str(Path(getUrl('./about.css')).resolve())
+        html = Path(getUrl('./web/about.html')).read_text(encoding="utf8")
+        css = str(Path(getUrl('./web/main.css')).resolve())
         view.setHtml(html, baseUrl=QUrl.fromLocalFile(css))
 
         self.show()
@@ -1081,17 +1081,17 @@ def make_cursor(url, size=60):
 
 def getUrl(url):
 
-    return os.path.join(basedir, url)
+    return os.path.join(directory, url)
 
 
 COLOR_BACKGROUND = '#606060'
 
 if (__name__ == '__main__'):
 
-    basedir = os.path.dirname(__file__)
+    directory = os.path.dirname(sys.argv[0])
     app = QApplication(sys.argv)
 
-    fontId = QFontDatabase.addApplicationFont('fonts/TLHeader.otf')
+    fontId = QFontDatabase.addApplicationFont(getUrl('fonts/TLHeader.otf'))
     fontFamily = QFontDatabase.applicationFontFamilies(fontId)[0]
     app.setFont(QFont(fontFamily, 12))
 

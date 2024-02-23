@@ -8,12 +8,12 @@ html, body {
     flex-direction: column;
     justify-content: space-around;
     align-items: center;
-    cursor: url('./image/cursor/default.png'), auto;
+    cursor: url('../image/cursor/default.png'), auto;
 }
 
 @font-face {
     font-family: 'MuseoSansCyrl';
-    src: url(./fonts/MuseoSansCyrl.otf);
+    src: url(../fonts/MuseoSansCyrl.otf);
 }
 
 main {
@@ -30,6 +30,7 @@ main {
     width: inherit;
     height: 42px;
     font-size: 22px;
+    margin-top: 15px;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -37,10 +38,16 @@ main {
 .text {
     font-size: 16px;
 }
+.footer {
+    width: 100%;
+}
+ul {
+    padding-left: 20px;
+}
 a {
     color: purple;
     font-weight: bold;
-    cursor: url('./image/cursor/link.png'), auto;
+    cursor: url('../image/cursor/link.png'), auto;
 }
 b {
     color: red;
