@@ -41,8 +41,8 @@ main {
 .footer {
     width: 100%;
 }
-ul {
-    padding-left: 20px;
+.footer ul {
+    font-size: 14px;
 }
 a {
     color: purple;

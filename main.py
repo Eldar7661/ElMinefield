@@ -1128,6 +1128,7 @@ if (__name__ == '__main__'):
     COLOR_BACKGROUND = '#606060'
     BASE_DIR = os.path.dirname(sys.argv[0])
 
+    sys.setrecursionlimit(4000)
     app = QApplication(sys.argv)
 
     fontId = QFontDatabase.addApplicationFont(getUrl('./fonts/TLHeader.otf'))
