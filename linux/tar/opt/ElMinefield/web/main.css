@@ -1,0 +1,65 @@
+
+html, body {
+    width: calc(100vw - 20px);
+    margin: 0px;
+    padding: 0px;
+    background-color: black;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    align-items: center;
+    cursor: url('../image/cursor/default.png'), auto;
+}
+
+@font-face {
+    font-family: 'MuseoSansCyrl';
+    src: url(../fonts/MuseoSansCyrl.otf);
+}
+
+main {
+    width: 80%;
+    height: 800px;
+    color: white;
+    font-family:'MuseoSansCyrl';
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+}
+.title {
+    width: inherit;
+    height: 42px;
+    font-size: 22px;
+    margin-top: 15px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.text {
+    font-size: 16px;
+}
+.footer {
+    width: 100%;
+}
+.footer ul {
+    font-size: 14px;
+}
+a {
+    color: purple;
+    font-weight: bold;
+    cursor: url('../image/cursor/link.png'), auto;
+}
+b {
+    color: red;
+}
+::-webkit-scrollbar {
+    width: 5px;
+}
+::-webkit-scrollbar-track {
+    background-color: black;
+}
+::-webkit-scrollbar-thumb {
+    background-color: purple;
+    border-radius: 5px;
+    transition: all 1s ease 0s;
+}

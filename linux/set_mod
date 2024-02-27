@@ -1,0 +1,40 @@
+#!/bin/bash
+
+echo 'chmod for pakage ElMinefield'
+
+if find ./opt/ElMinefield -type f -exec chmod 644 -- {} +
+then
+    echo '..done chmod 644 files in: ./opt/ElMinefield/'
+else
+    echo 'error chmod 644 files in: ./opt/ElMinefield/'
+fi
+
+if find ./opt/ElMinefield -type d -exec chmod 755 -- {} +
+then
+    echo '..done chmod 755 folders: ./opt/ElMinefield/'
+else
+    echo 'error chmod 755 folders: ./opt/ElMinefield/'
+fi
+
+if find ./usr/share -type f -exec chmod 644 -- {} +
+then
+    echo '..done chmod 644 files in: ./usr/share/'
+else
+    echo 'error chmod 644 files in: ./usr/share/'
+fi
+
+if chmod +x ./opt/ElMinefield/ElMinefield
+then
+    echo '..done chmod +x file: ./opt/ElMinefield/ElMinefield'
+else
+    echo 'error chmod +x file: ./opt/ElMinefield/ElMinefield'
+fi
+
+if chmod +x ./opt/ElMinefield/QtWebEngineProcess
+then
+    echo '..done chmod +x file: ./opt/ElMinefield/QtWebEngineProcess'
+else
+    echo 'error chmod +x file: ./opt/ElMinefield/QtWebEngineProcess'
+fi
+
+echo '..done script'
